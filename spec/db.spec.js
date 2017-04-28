@@ -4,6 +4,7 @@ import { db } from '../src';
 import config from './databases/config';
 import setupSQLite from './databases/sqlite/setup';
 import setupCassandra from './databases/cassandra/setup';
+import getGoogleOAuth from './databases/googlebigquery/setup';
 
 chai.use(chaiAsPromised);
 
@@ -31,6 +32,9 @@ const dbSchemas = {
  */
 const dbsToTest = (process.env.DB_CLIENTS || '').split(',').filter((client) => !!client);
 
+describe('bq', () => {
+  getGoogleOAuth();
+});
 
 describe('db', () => {
   const dbClients = dbsToTest.length ? dbsToTest : SUPPORTED_DB_CLIENTS;
