@@ -1,10 +1,10 @@
+/*eslint-disable */
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { db } from '../src';
 import config from './databases/config';
 import setupSQLite from './databases/sqlite/setup';
 import setupCassandra from './databases/cassandra/setup';
-import getGoogleOAuth from './databases/googlebigquery/setup';
 
 chai.use(chaiAsPromised);
 
@@ -19,6 +19,7 @@ const SUPPORTED_DB_CLIENTS = [
   'sqlserver',
   'sqlite',
   'cassandra',
+  'bigquery',
 ];
 
 const dbSchemas = {
@@ -32,14 +33,10 @@ const dbSchemas = {
  */
 const dbsToTest = (process.env.DB_CLIENTS || '').split(',').filter((client) => !!client);
 
-describe('bq', () => {
-  getGoogleOAuth();
-});
-
 describe('db', () => {
   const dbClients = dbsToTest.length ? dbsToTest : SUPPORTED_DB_CLIENTS;
   if (dbClients.some((dbClient) => !~SUPPORTED_DB_CLIENTS.indexOf(dbClient))) {
-    throw new Error('Invalid selected db client for tests');
+    throw new Error('Invalid selected db client for tests'+dbClient);
   }
 
   if (~dbClients.indexOf('sqlite')) {
@@ -54,6 +51,8 @@ describe('db', () => {
     describe(dbClient, () => {
       describe('.connect', () => {
         it(`should connect into a ${dbClient} database`, () => {
+			if (dbClient != 'bigquery') {
+				console.log(dbClient)
           const serverInfo = {
             ...config[dbClient],
             name: dbClient,
@@ -64,15 +63,39 @@ describe('db', () => {
           const dbConn = serverSession.createConnection(serverInfo.database);
 
           return expect(dbConn.connect()).to.not.be.rejected;
+	  } else {
+		  console.log("is BigQuery");
+		  const projectId = "google.com:pd-pm-experiments";
+		  const dataset = "bigquery-public-data:new_york";
+		  const keyfile = "~/.sqlelectron_service_account.json";
+          const serverInfo = {
+            ...config[dbClient],
+            name: dbClient,
+            client: dbClient,
+			projectId: projectId,
+			keyfile: keyfile,
+			dataset: dataset,
+          };
+		  const serverSession = db.createServer(serverInfo);
+		  const dbConn = serverSession.createConnection(serverInfo.database);
+		  return expect(dbConn.connect()).to.not.be.rejected;
+	  }
         });
 
         it('should connect into server without database specified', () => {
-          const serverInfo = {
+          let serverInfo = {
             ...config[dbClient],
             database: db.CLIENTS.find((c) => c.key === dbClient).defaultDatabase,
             name: dbClient,
             client: dbClient,
           };
+  		if (dbClient == 'bigquery') {
+  		  const projectId = "google.com:pd-pm-experiments";
+  		  const dataset = "bigquery-public-data:new_york";
+  		  const keyfile = "~/.sqlelectron_service_account.json";
+            serverInfo.projectId= projectId;
+  		  serverInfo.keyfile= keyfile;
+		  }
 
           const serverSession = db.createServer(serverInfo);
           const dbConn = serverSession.createConnection(serverInfo.database);
@@ -82,18 +105,33 @@ describe('db', () => {
       });
 
       describe('given is already connected', () => {
-        const serverInfo = {
+		 
+        let serverInfo = {
           ...config[dbClient],
           name: dbClient,
           client: dbClient,
         };
+		if (dbClient == 'bigquery') {
+		  const projectId = "google.com:pd-pm-experiments";
+		  const dataset = "bigquery-public-data:new_york";
+		  const keyfile = "~/.sqlelectron_service_account.json";
+          serverInfo.projectId= projectId;
+		  serverInfo.keyfile= keyfile;
+		}
 
         let serverSession;
         let dbConn;
         beforeEach(() => {
           serverSession = db.createServer(serverInfo);
+		  if (dbClient != 'bigquery') {
           dbConn = serverSession.createConnection(serverInfo.database);
-          return dbConn.connect();
+          return dbConn.connect();}
+		  else {
+	      dbConn = serverSession.createConnection(serverInfo.database);
+		  const client = dbConn.connect(serverInfo);
+		  console.log(client);
+		  return client;
+	  }
         });
 
         describe('.disconnect', () => {
@@ -1097,3 +1135,4 @@ describe('db', () => {
     });
   });
 });
+/*eslint-disable */

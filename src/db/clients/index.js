@@ -3,6 +3,7 @@ import postgresql from './postgresql';
 import sqlserver from './sqlserver';
 import sqlite from './sqlite';
 import cassandra from './cassandra';
+import bigquery from './bigquery';
 
 
 /**
@@ -65,6 +66,23 @@ export const CLIENTS = [
       'cancelQuery',
     ],
   },
+  {
+    key: 'bigquery',
+    name: 'Google BigQuery',
+    defaultDatabase: 'bigquery-public-data:samples',
+    disabledFeatures: [
+      'server:ssl',
+      'server:host',
+      'server:port',
+      'server:socketPath',
+      'server:user',
+      'server:password',
+      'server:schema',
+      'server:domain',
+      'server:ssh',
+      'scriptCreateTable',
+    ],
+  },
 ];
 
 
@@ -74,4 +92,5 @@ export default {
   sqlserver,
   sqlite,
   cassandra,
+  bigquery,
 };

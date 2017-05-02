@@ -31,6 +31,8 @@
     "node": ">=6"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^0.9.3",
+    "@google-cloud/common": "^0.13.2",
     "cassandra-driver": "^3.1.1",
     "debug": "^2.2.0",
     "googleapis": "^2.1.7",

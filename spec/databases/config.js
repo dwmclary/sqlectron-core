@@ -32,4 +32,6 @@ export default {
     port: 9042,
     database: 'sqlectron',
   },
+  bigquery: {
+  },
 };
