@@ -8,20 +8,27 @@ import createLogger from '../../logger';
 
 const logger = createLogger('db:clients:bigquery');
 
-export default function (keyfile, project, database) {
+var bqClient = {};
+
+export function createServer(serverConfig) {
+	console.log("in BQ create server");
+}
+
+export function createConnection(serverConfig) {
+	console.log("in BQ createconnection");
+}
+
+export default function (bqconfig) {
   // return new Promise(async (resolve, reject) => {
-    const dbConfig = configDatabase(keyfile, project, database);
-
-    logger().debug('creating database client %j', dbConfig);
-    const client = BigQuery(dbConfig);
-        
-    logger().debug('connecting');
-
-      logger().debug('connected');
+    // const dbConfig = configDatabase(bqconfig.keyfile, bqconfig.project, bqconfig.database);
+    logger().debug('creating database client %j', bqconfig);
+    const client  = BigQuery(bqconfig.database);
+	bqClient = BigQuery(bqconfig.database);
       return{
-        connect: () => connect(dbConfig),
+		client: client,
+        connect: () => connect(),
         disconnect: () => disconnect(),
-        listTables: (dataset) => listTables(client, dataset),
+        listTables: (dataset) => listTables(dataset),
         listViews: () => listViews(client),
         listRoutines: () => listRoutines(client),
         listTableColumns: (db, table) => listTableColumns(client, db, table),
@@ -39,15 +46,15 @@ export default function (keyfile, project, database) {
 function configDatabase(keyfile, project, database) {
   const config = {
     projectId: project,
-    keyFile: keyfile,
+    keyFilename: keyfile,
     dataset: database
   }
 
   return config;
 }
 
-export function connect(config) {
-  return BigQuery(config);
+export function connect() {
+	return Promise.resolve();
 }
 export function disconnect() {
   // BigQuery does not have a connection pool. So we open and close connections
@@ -58,10 +65,13 @@ export function disconnect() {
 }
 
 export async function listDatabases(client) {
-  console.log(client);
-  const result = await client.getDatasets().then(function(x){return x[0].map(function(y){return y.id;});});
-  console.log(result);
-  return result;
+  console.log("client has getDatasets");
+  console.log(client.getDatasets);
+  console.log(client.projectId);
+  const data = await client.getDatasets().then(function(x){
+	  console.log(x);
+	  result.data = x[0].map(function(y){return y.id;});});
+  return data;
 }
 
 export async function listTables(client, dataset) {

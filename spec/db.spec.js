@@ -52,7 +52,6 @@ describe('db', () => {
       describe('.connect', () => {
         it(`should connect into a ${dbClient} database`, () => {
 			if (dbClient != 'bigquery') {
-				console.log(dbClient)
           const serverInfo = {
             ...config[dbClient],
             name: dbClient,
@@ -64,20 +63,20 @@ describe('db', () => {
 
           return expect(dbConn.connect()).to.not.be.rejected;
 	  } else {
-		  console.log("is BigQuery");
-		  const projectId = "google.com:pd-pm-experiments";
-		  const dataset = "bigquery-public-data:new_york";
-		  const keyfile = "~/.sqlelectron_service_account.json";
-          const serverInfo = {
+
+          let serverInfo = {
             ...config[dbClient],
             name: dbClient,
             client: dbClient,
-			projectId: projectId,
-			keyfile: keyfile,
-			dataset: dataset,
           };
+          serverInfo.database = {
+			projectId: "google.com:pd-pm-experiments",
+	  	  	keyFilename: ".sqlelectron_service_account.json",
+		  }
+		  
 		  const serverSession = db.createServer(serverInfo);
 		  const dbConn = serverSession.createConnection(serverInfo.database);
+		  
 		  return expect(dbConn.connect()).to.not.be.rejected;
 	  }
         });
@@ -90,16 +89,14 @@ describe('db', () => {
             client: dbClient,
           };
   		if (dbClient == 'bigquery') {
-  		  const projectId = "google.com:pd-pm-experiments";
-  		  const dataset = "bigquery-public-data:new_york";
-  		  const keyfile = "~/.sqlelectron_service_account.json";
-            serverInfo.projectId= projectId;
-  		  serverInfo.keyfile= keyfile;
+            serverInfo.database = {
+				projectId: "google.com:pd-pm-experiments",
+		  	  	keyFilename: ".sqlelectron_service_account.json",
+			}
 		  }
 
           const serverSession = db.createServer(serverInfo);
           const dbConn = serverSession.createConnection(serverInfo.database);
-
           return expect(dbConn.connect()).to.not.be.rejected;
         });
       });
@@ -111,27 +108,25 @@ describe('db', () => {
           name: dbClient,
           client: dbClient,
         };
-		if (dbClient == 'bigquery') {
-		  const projectId = "google.com:pd-pm-experiments";
-		  const dataset = "bigquery-public-data:new_york";
-		  const keyfile = "~/.sqlelectron_service_account.json";
-          serverInfo.projectId= projectId;
-		  serverInfo.keyfile= keyfile;
-		}
-
         let serverSession;
         let dbConn;
         beforeEach(() => {
+			if (dbClient == 'bigquery') {
+	            serverInfo.database = {
+					projectId: "google.com:pd-pm-experiments",
+			  	  	keyFilename: ".sqlelectron_service_account.json",
+				}
+
+			}
+			// console.log("serverInfo");
+			// console.log(serverInfo);
           serverSession = db.createServer(serverInfo);
-		  if (dbClient != 'bigquery') {
+		  // console.log("serverSession");
+		  // console.log(serverSession);
           dbConn = serverSession.createConnection(serverInfo.database);
-          return dbConn.connect();}
-		  else {
-	      dbConn = serverSession.createConnection(serverInfo.database);
-		  const client = dbConn.connect(serverInfo);
-		  console.log(client);
-		  return client;
-	  }
+		  // console.log("dbConn");
+		  // console.log(dbConn);
+          return dbConn.connect();
         });
 
         describe('.disconnect', () => {

@@ -1,3 +1,4 @@
+/*eslint-disable */
 import { createConnection } from './client';
 import { CLIENTS } from './clients';
 
@@ -43,6 +44,7 @@ export function createServer(serverConfig) {
     },
 
     createConnection(dbName) {
+
       if (server.db[dbName]) {
         return server.db[dbName];
       }
@@ -59,3 +61,4 @@ export function createServer(serverConfig) {
     },
   };
 }
+/*eslint-disable */

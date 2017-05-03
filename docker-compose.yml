@@ -29,7 +29,7 @@ cassandra:
 
 test:
   image: node:6.5.0-onbuild
-  command: bash -c "npm install && npm test"
+  command: npm test
   environment:
     DB_CLIENTS: bigquery
     MYSQL_ENV_MYSQL_USER: root

@@ -1,7 +1,9 @@
+/*eslint-disable */
 import connectTunnel from './tunnel';
 import clients from './clients';
 import * as config from '../config';
 import createLogger from '../logger';
+import bq from './clients/bigquery';
 
 
 const logger = createLogger('db');
@@ -12,6 +14,11 @@ let limitSelect = null;
 
 
 export function createConnection(server, database) {
+	// console.log("in client.js");
+	// console.log(database);
+	if (server.config.name == 'bigquery') {
+	    return bq(database);
+	}
   /**
    * Database public API
    */
@@ -281,3 +288,4 @@ function checkIsConnected(server, database) {
     throw new Error('There is no connection available.');
   }
 }
+/*eslint-disable */
