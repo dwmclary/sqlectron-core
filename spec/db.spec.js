@@ -25,6 +25,7 @@ const SUPPORTED_DB_CLIENTS = [
 const dbSchemas = {
   postgresql: 'public',
   sqlserver: 'dbo',
+  bigquery: 'bigquery-public-data:samples',
 };
 
 
@@ -113,10 +114,9 @@ describe('db', () => {
         beforeEach(() => {
 			if (dbClient == 'bigquery') {
 	            serverInfo.database = {
-					projectId: "google.com:pd-pm-experiments",
-			  	  	keyFilename: ".sqlelectron_service_account.json",
+					projectId: 'google.com:pd-pm-experiments',
+			  	  	keyFilename: '.sqlelectron_service_account.json',
 				}
-
 			}
 			// console.log("serverInfo");
 			// console.log(serverInfo);
@@ -140,7 +140,9 @@ describe('db', () => {
             const databases = await dbConn.listDatabases();
             if (dbClient === 'sqlite') {
               expect(databases[0]).to.match(/sqlectron\.db$/);
-            } else {
+            } else if (dbClient === 'bigquery') {
+				expect(databases.length).to.be.above(0);
+			} else {
               expect(databases).to.include.members(['sqlectron']);
             }
           });
@@ -148,13 +150,16 @@ describe('db', () => {
 
         describe('.listTables', () => {
           it('should list all tables', async () => {
-            const tables = await dbConn.listTables({ schema: dbSchema });
+			 const tables = await dbConn.listTables({ schema: dbSchema });
+			  
             if (dbClient === 'postgresql' || dbClient === 'sqlserver') {
               expect(tables).to.eql([
                 { schema: dbSchema, name: 'roles' },
                 { schema: dbSchema, name: 'users' },
               ]);
-            } else {
+            } else if (dbClient === 'bigquery') {
+				expect(tables).to.be.above(0);
+			} else {
               expect(tables).to.eql([
                 { name: 'roles' },
                 { name: 'users' },
@@ -672,6 +677,7 @@ describe('db', () => {
           const includePk = dbClient === 'cassandra';
 
           beforeEach(async () => {
+            if (dbClient != 'bigquery') {
             await dbConn.executeQuery(`
               INSERT INTO roles (${includePk ? 'id,' : ''} name)
               VALUES (${includePk ? '1,' : ''} 'developer')
@@ -681,9 +687,12 @@ describe('db', () => {
               INSERT INTO users (${includePk ? 'id,' : ''} username, email, password, role_id, createdat)
               VALUES (${includePk ? '1,' : ''} 'maxcnunes', 'maxcnunes@gmail.com', '123456', 1,'2016-10-25')
             `);
+          }
           });
 
-          afterEach(() => dbConn.truncateAllTables());
+          afterEach(() => { if (dbClient != 'bigquery') {
+            dbConn.truncateAllTables();
+          }});
 
           describe('SELECT', () => {
             it('should execute an empty query', async () => {
@@ -693,7 +702,7 @@ describe('db', () => {
               } catch (err) {
                 if (dbClient === 'cassandra') {
                   expect(err.message).to.eql('line 0:-1 no viable alternative at input \'<EOF>\'');
-                } else {
+                } else if (dbClient != 'bigquery') {
                   throw err;
                 }
               }
@@ -719,8 +728,12 @@ describe('db', () => {
             });
 
             it('should execute a single query with empty result', async () => {
-              const results = await dbConn.executeQuery('select * from users where id = 0');
-
+              let query = 'select * from users where id = 0';
+              if (dbClient == 'bigquery') {
+                query = 'select 1 limit 0';
+              }
+              const results = await dbConn.executeQuery(query);
+              
               expect(results).to.have.length(1);
               const [result] = results;
 
@@ -744,7 +757,13 @@ describe('db', () => {
             });
 
             it('should execute a single query', async () => {
-              const results = await dbConn.executeQuery('select * from users');
+              let query = 'select * from users';
+              if (dbClient == 'bigquery') {
+                query = 'SELECT weight_pounds, state, year, gestation_weeks '
+                  + 'FROM `bigquery-public-data.samples.natality`'
+                  + 'ORDER BY weight_pounds DESC LIMIT 1;';
+              }
+              const results = await dbConn.executeQuery(query);
 
               expect(results).to.have.length(1);
               const [result] = results;

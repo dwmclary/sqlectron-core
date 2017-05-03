@@ -25,10 +25,12 @@ export default function (bqconfig) {
     const client  = BigQuery(bqconfig.database);
 	bqClient = BigQuery(bqconfig.database);
       return{
-		client: client,
+		    client: client,
+        defaultProject: bqconfig.database.projectId,
+        wrapIdentifier,
         connect: () => connect(),
         disconnect: () => disconnect(),
-        listTables: (dataset) => listTables(dataset),
+        listTables: (dataset) => listTables(client, dataset),
         listViews: () => listViews(client),
         listRoutines: () => listRoutines(client),
         listTableColumns: (db, table) => listTableColumns(client, db, table),
@@ -41,6 +43,13 @@ export default function (bqconfig) {
         getTableCreateScript: (table) => getTableCreateScript(client, table),
         getViewCreateScript: (view) => getViewCreateScript(client, view),
       };
+}
+
+export function wrapIdentifier(value) {
+  if (value === '*') return value;
+  const matched = value.match(/(.*?)(\[[0-9]\])/); // eslint-disable-line no-useless-escape
+  if (matched) return wrapIdentifier(matched[1]) + matched[2];
+  return `"${value.replace(/"/g, '""')}"`;
 }
 
 function configDatabase(keyfile, project, database) {
@@ -65,20 +74,43 @@ export function disconnect() {
 }
 
 export async function listDatabases(client) {
-  console.log("client has getDatasets");
-  console.log(client.getDatasets);
-  console.log(client.projectId);
-  const data = await client.getDatasets().then(function(x){
-	  console.log(x);
-	  result.data = x[0].map(function(y){return y.id;});});
+  const data = await client.getDatasets().then(function(x) {
+	  return x[0].map(function(y){return y.id;});
+  });
   return data;
 }
 
 export async function listTables(client, dataset) {
-  const thisDataset = client.dataset(dataset);
-  const { data } = await thisDataset.getTables();
-
+  let thisDataset = dataset.schema;
+  let thisProject = '';
+  if (thisDataset.indexOf(':') >= 0) {
+    const newProject = thisDataset.split(':')[0];
+    thisDataset = thisDataset.split(':')[1];
+    client.projectId = newProject;
+  }
+  const data  = await client.dataset(thisDataset).getTables().then(function(x) {
+    return x[0].map(function(y){return y.id});
+  });
+  console.log(data);
   return data;
+}
+
+export async function executeQuery(client, queryText) {
+  console.log("querytext");
+  console.log(queryText);
+  console.log("client has query");
+  console.log(client.query);
+  // set the project to the default project ID
+  client.projectId = client.defaultProject;
+  let query = {
+    'query': queryText,
+    'useLegacySQL': false,
+  }
+  const data = await client.query(query).then(function(x) {
+    console.log(x);
+    return x;});
+  console.log(data);
+  return data
 }
 
 /*eslint-disable */
