@@ -98,8 +98,6 @@ export async function listTables(client, dataset) {
 export async function executeQuery(client, queryText) {
   console.log("querytext");
   console.log(queryText);
-  console.log("client has query");
-  console.log(client.query);
   // set the project to the default project ID
   client.projectId = client.defaultProject;
   let queryObject = {
@@ -107,10 +105,23 @@ export async function executeQuery(client, queryText) {
     'useLegacySQL': false,
   }
   console.log(queryObject)
-  const data = await client.query(queryObject).then(function(data) {
-    console.log(data);
-    return data;});
+  let data = [];
+  client.createQueryStream(queryObject)
+  .on('error', console.error)
+  .on('data', function(row) {
+    // row is a result from your query.
+    console.log(row);
+    data.push(row);
+  })
+  .on('end', function() {
+    // All rows retrieved.
+  });
   console.log(data);
+  return data;
+  // const data = await client.query(queryObject).then(function(data) {
+  //   console.log(data);
+  //   return data;});
+  // console.log(data);
   return data;
 }
 
