@@ -102,15 +102,16 @@ export async function executeQuery(client, queryText) {
   console.log(client.query);
   // set the project to the default project ID
   client.projectId = client.defaultProject;
-  let query = {
+  let queryObject = {
     'query': queryText,
     'useLegacySQL': false,
   }
-  const data = await client.query(query).then(function(x) {
-    console.log(x);
-    return x;});
+  console.log(queryObject)
+  const data = await client.query(queryObject).then(function(data) {
+    console.log(data);
+    return data;});
   console.log(data);
-  return data
+  return data;
 }
 
 /*eslint-disable */
