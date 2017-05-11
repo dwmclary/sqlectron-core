@@ -783,7 +783,7 @@ describe('db', () => {
               expect(result).to.have.deep.property('rows[0].email').to.eql('maxcnunes@gmail.com');
               expect(result).to.have.deep.property('rows[0].createdat');
               } else {
-                expect(field('weight_pounds')).to.exist();
+                expect(field('weight_pounds')).to.exist;
                 
               }
               expect(result).to.have.property('command').to.eql('SELECT');
