@@ -99,7 +99,7 @@ function parseQueryResults(results) {
     let response = [{fields: Object.keys(results[0] || {}).map((name) => ({ name })),
     command: "SELECT",
     rows: results,
-    rowCount: results.length}}];
+    rowCount: results.length}];
       console.log(response);
       return response;
 }
