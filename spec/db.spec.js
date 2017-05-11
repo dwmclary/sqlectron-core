@@ -764,11 +764,12 @@ describe('db', () => {
                   + 'ORDER BY weight_pounds DESC LIMIT 1;';
               }
               const results = await dbConn.executeQuery(query);
-
+              console.log("SPEC RESULTS", results);
               expect(results).to.have.length(1);
               const [result] = results;
               const field = (name) => result.fields.find((item) => item.name === name);
 
+              if (dbClient != 'bigquery') {
               expect(field('id')).to.exist;
               expect(field('username')).to.exist;
               expect(field('email')).to.exist;
@@ -781,7 +782,10 @@ describe('db', () => {
               expect(result).to.have.deep.property('rows[0].password').to.eql('123456');
               expect(result).to.have.deep.property('rows[0].email').to.eql('maxcnunes@gmail.com');
               expect(result).to.have.deep.property('rows[0].createdat');
-
+              } else {
+                expect(field('weight_pounds')).to.exist();
+                
+              }
               expect(result).to.have.property('command').to.eql('SELECT');
               expect(result).to.have.deep.property('rowCount').to.eql(1);
             });

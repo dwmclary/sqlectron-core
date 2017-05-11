@@ -95,34 +95,36 @@ export async function listTables(client, dataset) {
   return data;
 }
 
-export async function executeQuery(client, queryText) {
+function parseQueryResults(results) {
+    let response = [{fields: Object.keys(results[0] || {}).map((name) => ({ name })),
+    results: { 
+    command: "SELECT",
+    rows: results,
+      rowCount: results.length}}];
+      console.log(response);
+      return response;
+}
+
+function executeQuery(client, queryText) {
   console.log("querytext");
   console.log(queryText);
+  console.log(client.projectId);
   // set the project to the default project ID
-  client.projectId = client.defaultProject;
+  // client.projectId = client.defaultProject;
+  // console.log(client.projectId);
+  
   let queryObject = {
-    'query': queryText,
-    'useLegacySQL': false,
+    query: queryText,
+    useLegacySql: false,
   }
-  console.log(queryObject)
   let data = [];
-  client.createQueryStream(queryObject)
-  .on('error', console.error)
-  .on('data', function(row) {
-    // row is a result from your query.
-    console.log(row);
-    data.push(row);
-  })
-  .on('end', function() {
-    // All rows retrieved.
+  return new Promise((resolve, reject) => {
+    client.query(queryObject, function(err, rows) {
+      if (err) return reject(err);
+      
+      resolve(parseQueryResults(rows));
+    });
   });
-  console.log(data);
-  return data;
-  // const data = await client.query(queryObject).then(function(data) {
-  //   console.log(data);
-  //   return data;});
-  // console.log(data);
-  return data;
 }
 
 /*eslint-disable */
