@@ -89,7 +89,23 @@ export async function listTables(client, dataset) {
     client.projectId = newProject;
   }
   const data  = await client.dataset(thisDataset).getTables().then(function(x) {
-    return x[0].map(function(y){return y.id});
+    return x[0].map(function(y){return {name: y.id}});
+  });
+  console.log(data);
+  return data;
+}
+
+export async function listViews(client, dataset) {
+  let thisDataset = dataset.schema;
+  let thisProject = '';
+  if (thisDataset.indexOf(':') >= 0) {
+    const newProject = thisDataset.split(':')[0];
+    thisDataset = thisDataset.split(':')[1];
+    client.projectId = newProject;
+  }
+  const data  = await client.dataset(thisDataset).getTables().then(function(x) {
+    let views = x[0].filter(function(x) {return x.metadata.type == "VIEW";});
+    return views.map(function(y){return {name: y.id}});
   });
   console.log(data);
   return data;

@@ -158,7 +158,7 @@ describe('db', () => {
                 { schema: dbSchema, name: 'users' },
               ]);
             } else if (dbClient === 'bigquery') {
-				expect(tables).to.be.above(0);
+				expect(tables.length).to.be.above(0);
 			} else {
               expect(tables).to.eql([
                 { name: 'roles' },
@@ -710,6 +710,7 @@ describe('db', () => {
 
             it('should execute an query with only comments', async () => {
               try {
+                if (dbClient != 'bigquery') {
                 const results = await dbConn.executeQuery('-- my comment');
 
                 // MySQL treats commented query as a non select query
@@ -718,13 +719,14 @@ describe('db', () => {
                 } else {
                   expect(results).to.have.length(0);
                 }
-              } catch (err) {
+              }} catch (err) {
                 if (dbClient === 'cassandra') {
                   expect(err.message).to.eql('line 1:13 mismatched character \'<EOF>\' expecting set null');
                 } else {
                   throw err;
                 }
               }
+            
             });
 
             it('should execute a single query with empty result', async () => {
