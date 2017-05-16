@@ -1000,9 +1000,13 @@ describe('db', () => {
 
           describe('UPDATE', () => {
             it('should execute a single query', async () => {
-              const results = await dbConn.executeQuery(`
-                update users set username = 'max' where id = 1
-              `);
+				let query = `update users set username = 'max' where id = 1`;
+				if (dbClient === 'bigquery') {
+					query = `update \`google.com:pd-pm-experiments.sqlectron_tests.users\`
+					set username = 'max' where id = 1`;
+				}
+              const results = await dbConn.executeQuery(query);
+			  console.log("SPEC RESULTS:",results);
 
               expect(results).to.have.length(1);
               const [result] = results;
@@ -1029,10 +1033,17 @@ describe('db', () => {
 
             it('should execute multiple queries', async () => {
               try {
-                const results = await dbConn.executeQuery(`
-                  update users set username = 'max' where username = 'maxcnunes';
+				  	let query = `                  
+				  update users set username = 'max' where username = 'maxcnunes';
                   update roles set name = 'dev' where name = 'developer';
-                `);
+				  `;
+				  if (dbClient === 'bigquery') {
+				  	query = `
+					  update \`google.com:pd-pm-experiments.sqlectron_tests.users\` set username = 'max' where username = 'maxcnunes';
+	                  update \`google.com:pd-pm-experiments.sqlectron_tests.roles\` set name = 'dev' where name = 'developer';
+					  `
+				  }
+                const results = await dbConn.executeQuery(query);
 
                 // MSSQL treats multiple non select queries as a single query result
                 if (dbClient === 'sqlserver') {
@@ -1088,6 +1099,12 @@ describe('db', () => {
                   if (dbClient === 'sqlserver') {
                     expect(results).to.have.length(0);
                     return;
+                  } 
+				  if (dbClient === 'bigquery') {
+					  console.log("EXPECT ERROR!");
+					  console.log(err.message);
+					  expect(err.message).to.eql('Statement not supported: CreateDatabaseStatement at [1:1]');
+					  return;
                   }
 
                   expect(results).to.have.length(1);
@@ -1104,7 +1121,7 @@ describe('db', () => {
             });
           }
 
-          if (dbClient !== 'cassandra' && dbClient !== 'sqlite') {
+          if (dbClient !== 'cassandra' && dbClient !== 'sqlite' && dbClient !== 'bigquery') {
             describe('DROP', () => {
               describe('DATABASE', () => {
                 beforeEach(async () => {
@@ -1122,6 +1139,9 @@ describe('db', () => {
                   if (dbClient === 'sqlserver') {
                     expect(results).to.have.length(0);
                     return;
+                  } else if (dbClient === 'bigquery') {
+					  expect(err.message).to.eql('Statement not supported: DropStatement at [1:1]');
+					  return;
                   }
 
                   expect(results).to.have.length(1);

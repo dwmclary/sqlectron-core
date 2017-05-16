@@ -111,16 +111,16 @@ export async function listViews(client, dataset) {
   return data;
 }
 
-function parseQueryResults(results) {
-    let response = [{fields: Object.keys(results[0] || {}).map((name) => ({ name })),
-    command: "SELECT",
-    rows: results,
+function parseQueryResults(data, command) {
+    let response = [{fields: Object.keys(data[0] || {}).map((name) => ({ name })),
+    command: command,
+    rows: data,
     rowCount: results.length}];
       console.log(response);
       return response;
 }
 
-function executeSingleQuery(client, queryText) {
+function executeSingleQuery(client, queryText, command) {
     let queryObject = {
       query: queryText,
       useLegacySql: false,
@@ -129,7 +129,7 @@ function executeSingleQuery(client, queryText) {
     return new Promise((resolve, reject) => {
       client.query(queryObject, function(err, rows) {
         if (err) {
-			console.log(err);
+			// console.log(err);
 			return reject(err)
 		};
       
@@ -149,7 +149,7 @@ function executeQuery(client, queryText) {
   console.log(commands);
   let results = [];
   for (var i = 0; i < commands.length; i++) {
-	  let thisResult = executeSingleQuery(client, commands[i].text);
+	  let thisResult = executeSingleQuery(client, commands[i].text, commands[i].type);
 	  results.push(thisResult);
   }
   return Promise.all(results);
