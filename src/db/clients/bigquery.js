@@ -147,7 +147,7 @@ export async function listTableColumns(client, table) {
   	  	newProject = projectElements[0] + ':' + projectElements[1];
   	  }
       thisDataset = projectElements[projectElements.length - 1];
-      client.projectId = newProject;
+      // client.projectId = newProject;
       thisTable = thisDataset.split('.')[1];
       thisDataset = thisDataset.split('.')[0];
     }
@@ -155,10 +155,11 @@ export async function listTableColumns(client, table) {
     console.log("thisTable", thisTable);
     let myDataset = client.dataset(thisDataset);
     let myTable = myDataset.table(thisTable);
-    const data  = await myTable.getMetadata().then(function(data) {
-      return data[0].schema.fields;
+    let result = {}
+    myTable.getMetadata().then(function(data) {
+      result.data = data[0].schema.fields;
     });
-    return data;
+    return result.data;
 	
 }
 
