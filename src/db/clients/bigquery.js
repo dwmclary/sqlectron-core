@@ -31,7 +31,7 @@ export default function (bqconfig) {
         listTables: (dataset) => listTables(client, dataset),
         listViews: (dataset) => listViews(client, dataset),
         listRoutines: () => listRoutines(client),
-        listTableColumns: (db, table) => listTableColumns(client, db, table),
+        listTableColumns: (table) => listTableColumns(client, table),
         listTableTriggers: (table) => listTableTriggers(client, table),
         listTableIndexes: (db, table) => listTableIndexes(client, table),
         listSchemas: () => listSchemas(client),
@@ -76,6 +76,17 @@ export function getTableKeys() {
   return Promise.resolve([]);
 }
 
+function getTableCreateScript() {
+  return Promise.resolve([]);
+}
+
+function getViewCreateScript() {
+  return Promise.resolve([]);
+}
+
+function getRoutineCreateScript() {
+  return Promise.resolve([]);
+}
 
 function configDatabase(keyfile, project, database) {
   const config = {
@@ -124,11 +135,11 @@ export async function listTables(client, dataset) {
   return data;
 }
 
-export async function listTableColumns(client, dataset, table) {
-	console.log(dataset);
+export async function listTableColumns(client, table) {
 	console.log(table);
-    let thisDataset = dataset.schema;
+    let thisDataset = table;
     let thisProject = '';
+    let thisTable = '';
     if (thisDataset.indexOf(':') >= 0) {
   	  const projectElements = thisDataset.split(':');
    	  let newProject = projectElements[0];
@@ -137,13 +148,16 @@ export async function listTableColumns(client, dataset, table) {
   	  }
       thisDataset = projectElements[projectElements.length - 1];
       client.projectId = newProject;
+      thisTable = thisDataset.split('.')[1];
+      thisDataset = thisDataset.split('.')[0];
     }
-    const data  = await client.dataset(thisDataset).table(table).getMetadata().then(function(x) {
-		console.log(x);
-      let columns = x[0].schema.fields;
-      return columns;
+    console.log("thisDataset", thisDataset);
+    console.log("thisTable", thisTable);
+    let myDataset = client.dataset(thisDataset);
+    let myTable = myDataset.table(thisTable);
+    const data  = await myTable.getMetadata().then(function(data) {
+      return data[0].schema.fields;
     });
-	console.log(data);
     return data;
 	
 }

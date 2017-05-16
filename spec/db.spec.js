@@ -211,7 +211,8 @@ describe('db', () => {
           it('should list all columns and their type from users table', async() => {
             let columns = [];
 			if (dbClient === 'bigquery') {
-				columns = await dbConn.listTableColumns('sqlectron-tests', 'users');
+				columns = await dbConn.listTableColumns('google.com:pd-pm-experiments:sqlectron-tests.users');
+        console.log(columns);
 			} else {
 				columns = await dbConn.listTableColumns('users');
 			}
@@ -397,7 +398,7 @@ describe('db', () => {
                 '  PRIMARY KEY (id),\n' +
                 '  FOREIGN KEY (role_id) REFERENCES roles (id)\n)'
               );
-            } else if (dbClient === 'cassandra') {
+            } else if (dbClient === 'cassandra' || dbClient === 'bigquery') {
               expect(createScript).to.eql(undefined);
             } else {
               throw new Error('Invalid db client');
@@ -908,13 +909,22 @@ describe('db', () => {
 
             it('should execute multiple queries', async () => {
               try {
-                const results = await dbConn.executeQuery(`
+                let query = `
                   insert into users (username, email, password)
                   values ('user', 'user@hotmail.com', '123456');
 
                   insert into roles (name)
-                  values ('manager');
-                `);
+                  values ('manager');`
+                if (dbClient === 'bigquery') {
+                  query = `insert into \`google.com:pd-pm-experiments.sqlectron_tests.users\`
+                   (id, username, email, password)
+                  values (1, 'user', 'user@hotmail.com', '123456');
+
+                  insert into \`google.com:pd-pm-experiments.sqlectron_tests.roles\`
+                  (id, name)
+                  values (1, 'manager');`
+                }
+                const results = await dbConn.executeQuery(query);
 
                 // MSSQL treats multiple non select queries as a single query result
                 if (dbClient === 'sqlserver') {
@@ -926,6 +936,20 @@ describe('db', () => {
                   expect(result).to.have.property('fields').to.eql([]);
                   expect(result).to.have.property('rowCount').to.eql(0);
                   expect(result).to.have.property('affectedRows').to.eql(2);
+                } else if (dbClient === 'bigquery') {
+                  expect(results).to.have.length(2);
+                  const [firstResult, secondResult] = results;
+
+                  expect(firstResult).to.have.property('command').to.eql('INSERT');
+                  expect(firstResult).to.have.property('rows').to.eql([]);
+                  expect(firstResult).to.have.property('fields').to.eql([]);
+                  expect(firstResult).to.have.property('rowCount').to.eql(0);
+                  expect(firstResult).to.have.property('affectedRows').to.eql(undefined);
+
+                  expect(secondResult).to.have.property('command').to.eql('INSERT');
+                  expect(secondResult).to.have.property('rows').to.eql([]);
+                  expect(secondResult).to.have.property('fields').to.eql([]);
+                  expect(secondResult).to.have.property('rowCount').to.eql(0);
                 } else {
                   expect(results).to.have.length(2);
                   const [firstResult, secondResult] = results;
@@ -940,9 +964,6 @@ describe('db', () => {
                   expect(secondResult).to.have.property('rows').to.eql([]);
                   expect(secondResult).to.have.property('fields').to.eql([]);
                   expect(secondResult).to.have.property('rowCount').to.eql(undefined);
-				  if (dbClient !== 'bigquery') {
-                  expect(secondResult).to.have.property('affectedRows').to.eql(1);
-			  	  }
                 }
               } catch (err) {
                 if (dbClient === 'cassandra') {
