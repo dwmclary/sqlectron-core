@@ -11,11 +11,9 @@ const logger = createLogger('db:clients:bigquery');
 var bqClient = {};
 
 export function createServer(serverConfig) {
-	console.log("in BQ create server");
 }
 
 export function createConnection(serverConfig) {
-	console.log("in BQ createconnection");
 }
 
 export default function (bqconfig) {
@@ -31,11 +29,14 @@ export default function (bqconfig) {
         connect: () => connect(),
         disconnect: () => disconnect(),
         listTables: (dataset) => listTables(client, dataset),
-        listViews: () => listViews(client),
+        listViews: (dataset) => listViews(client, dataset),
         listRoutines: () => listRoutines(client),
         listTableColumns: (db, table) => listTableColumns(client, db, table),
+        listTableTriggers: (table) => listTableTriggers(client, table),
+        listTableIndexes: (db, table) => listTableIndexes(client, table),
         listSchemas: () => listSchemas(client),
         getTableReferences: (table) => getTableReferences(client, table),
+		getTableKeys: (db, table) => getTableKeys(client, db, table),
         query: (queryText) => executeQuery(client, queryText),
         executeQuery: (queryText) => executeQuery(client, queryText),
         listDatabases: () => listDatabases(client),
@@ -51,6 +52,30 @@ export function wrapIdentifier(value) {
   if (matched) return wrapIdentifier(matched[1]) + matched[2];
   return `"${value.replace(/"/g, '""')}"`;
 }
+
+export function listRoutines() {
+  return Promise.resolve([]);
+}
+
+export function listTableTriggers() {
+  return Promise.resolve([]);
+}
+export function listTableIndexes() {
+  return Promise.resolve([]);
+}
+
+export function listSchemas() {
+  return Promise.resolve([]);
+}
+
+export function getTableReferences() {
+  return Promise.resolve([]);
+}
+
+export function getTableKeys() {
+  return Promise.resolve([]);
+}
+
 
 function configDatabase(keyfile, project, database) {
   const config = {
@@ -84,39 +109,72 @@ export async function listTables(client, dataset) {
   let thisDataset = dataset.schema;
   let thisProject = '';
   if (thisDataset.indexOf(':') >= 0) {
-    const newProject = thisDataset.split(':')[0];
-    thisDataset = thisDataset.split(':')[1];
+	  const projectElements = thisDataset.split(':');
+ 	  let newProject = projectElements[0];
+	  if (projectElements.length > 2) {
+	  	newProject = projectElements[0] + ':' + projectElements[1];
+	  }
+    thisDataset = projectElements[projectElements.length - 1];
     client.projectId = newProject;
   }
   const data  = await client.dataset(thisDataset).getTables().then(function(x) {
     return x[0].map(function(y){return {name: y.id}});
   });
-  console.log(data);
+  // console.log(data);
   return data;
+}
+
+export async function listTableColumns(client, dataset, table) {
+	console.log(dataset);
+	console.log(table);
+    let thisDataset = dataset.schema;
+    let thisProject = '';
+    if (thisDataset.indexOf(':') >= 0) {
+  	  const projectElements = thisDataset.split(':');
+   	  let newProject = projectElements[0];
+  	  if (projectElements.length > 2) {
+  	  	newProject = projectElements[0] + ':' + projectElements[1];
+  	  }
+      thisDataset = projectElements[projectElements.length - 1];
+      client.projectId = newProject;
+    }
+    const data  = await client.dataset(thisDataset).table(table).getMetadata().then(function(x) {
+		console.log(x);
+      let columns = x[0].schema.fields;
+      return columns;
+    });
+	console.log(data);
+    return data;
+	
 }
 
 export async function listViews(client, dataset) {
   let thisDataset = dataset.schema;
   let thisProject = '';
   if (thisDataset.indexOf(':') >= 0) {
-    const newProject = thisDataset.split(':')[0];
-    thisDataset = thisDataset.split(':')[1];
+	  const projectElements = thisDataset.split(':');
+ 	  let newProject = projectElements[0];
+	  if (projectElements.length > 2) {
+	  	newProject = projectElements[0] + ':' + projectElements[1];
+	  }
+    thisDataset = projectElements[projectElements.length - 1];
     client.projectId = newProject;
   }
   const data  = await client.dataset(thisDataset).getTables().then(function(x) {
     let views = x[0].filter(function(x) {return x.metadata.type == "VIEW";});
     return views.map(function(y){return {name: y.id}});
   });
-  console.log(data);
   return data;
 }
 
 function parseQueryResults(data, command) {
-    let response = [{fields: Object.keys(data[0] || {}).map((name) => ({ name })),
+    let response = {fields: Object.keys(data[0] || {}).map((name) => ({ name })),
     command: command,
     rows: data,
-    rowCount: results.length}];
-      console.log(response);
+    rowCount: data.length};
+	if (command === "UPDATE" || command === "DELETE" || command === "INSERT") {
+		response.affectedRows = undefined;
+	}
       return response;
 }
 
@@ -132,21 +190,20 @@ function executeSingleQuery(client, queryText, command) {
 			// console.log(err);
 			return reject(err)
 		};
-      
-        resolve(parseQueryResults(rows));
+        resolve(parseQueryResults(rows, command));
       });
     });
 }
 
 function executeQuery(client, queryText) {
-  console.log("querytext");
-  console.log(queryText);
-  console.log(client.projectId);
+  // console.log("querytext");
+  // console.log(queryText);
+  // console.log(client.projectId);
   // set the project to the default project ID
   // client.projectId = client.defaultProject;
   // console.log(client.projectId);
   const commands = identifyCommands(queryText);
-  console.log(commands);
+  // console.log(commands);
   let results = [];
   for (var i = 0; i < commands.length; i++) {
 	  let thisResult = executeSingleQuery(client, commands[i].text, commands[i].type);

@@ -25,7 +25,7 @@ const SUPPORTED_DB_CLIENTS = [
 const dbSchemas = {
   postgresql: 'public',
   sqlserver: 'dbo',
-  bigquery: 'bigquery-public-data:samples',
+  bigquery: 'google.com:pd-pm-experiments:sqlectron_tests',
 };
 
 
@@ -199,7 +199,7 @@ describe('db', () => {
               expect(routines).to.have.length(1);
               expect(routine).to.have.deep.property('routineType').to.eql('PROCEDURE');
               expect(routine).to.have.deep.property('schema').to.eql(dbSchema);
-            } else if (dbClient === 'cassandra' || dbClient === 'sqlite') {
+            } else if (dbClient === 'cassandra' || dbClient === 'sqlite' || dbClient === 'bigquery') {
               expect(routines).to.have.length(0);
             } else {
               throw new Error('Invalid db client');
@@ -209,7 +209,12 @@ describe('db', () => {
 
         describe('.listTableColumns', () => {
           it('should list all columns and their type from users table', async() => {
-            const columns = await dbConn.listTableColumns('users');
+            let columns = [];
+			if (dbClient === 'bigquery') {
+				columns = await dbConn.listTableColumns('sqlectron-tests', 'users');
+			} else {
+				columns = await dbConn.listTableColumns('users');
+			}
             expect(columns).to.have.length(6);
 
             const column = (name) => columns.find((col) => col.columnName === name);
@@ -260,7 +265,7 @@ describe('db', () => {
         describe('.listTableTriggers', () => {
           it('should list all table related triggers', async() => {
             const triggers = await dbConn.listTableTriggers('users');
-            if (dbClient === 'cassandra') {
+            if (dbClient === 'cassandra' || dbClient === 'bigquery') {
               expect(triggers).to.have.length(0);
             } else {
               expect(triggers).to.have.length(1);
@@ -272,7 +277,7 @@ describe('db', () => {
         describe('.listTableIndexes', () => {
           it('should list all indexes', async() => {
             const indexes = await dbConn.listTableIndexes('users', dbSchema);
-            if (dbClient === 'cassandra') {
+            if (dbClient === 'cassandra' || dbClient === 'bigquery') {
               expect(indexes).to.have.length(0);
             } else if (dbClient === 'sqlite') {
               expect(indexes).to.have.length(1);
@@ -309,7 +314,7 @@ describe('db', () => {
         describe('.getTableReferences', () => {
           it('should list all tables that selected table has references to', async() => {
             const references = await dbConn.getTableReferences('users');
-            if (dbClient === 'cassandra' || dbClient === 'sqlite') {
+            if (dbClient === 'cassandra' || dbClient === 'sqlite' || dbClient === 'bigquery') {
               expect(references).to.have.length(0);
             } else {
               expect(references).to.have.length(1);
@@ -323,7 +328,7 @@ describe('db', () => {
             const tableKeys = await dbConn.getTableKeys('users');
             if (dbClient === 'cassandra') {
               expect(tableKeys).to.have.length(1);
-            } else if (dbClient === 'sqlite') {
+            } else if (dbClient === 'sqlite' || dbClient === 'bigquery') {
               expect(tableKeys).to.have.length(0);
             } else {
               expect(tableKeys).to.have.length(2);
@@ -681,7 +686,20 @@ describe('db', () => {
               INSERT INTO users (${includePk ? 'id,' : ''} username, email, password, role_id, createdat)
               VALUES (${includePk ? '1,' : ''} 'maxcnunes', 'maxcnunes@gmail.com', '123456', 1,'2016-10-25')
             `);
+          } else {	
+              await dbConn.executeQuery(`
+                INSERT INTO \`google.com:pd-pm-experiments.sqlectron_tests.roles\`
+				   (${includePk ? 'id,' : ''} name)
+                VALUES (${includePk ? '1,' : ''} 'developer')
+              `);
+
+              await dbConn.executeQuery(`
+                INSERT INTO \`google.com:pd-pm-experiments.sqlectron_tests.users\`
+				   (${includePk ? 'id,' : ''} username, email, password, role_id, createdat)
+                VALUES (${includePk ? '1,' : ''} 'maxcnunes', 'maxcnunes@gmail.com', '123456', 1,'2016-10-25')
+              `);
           }
+		  
           });
 
           afterEach(() => { if (dbClient != 'bigquery') {
@@ -726,7 +744,8 @@ describe('db', () => {
             it('should execute a single query with empty result', async () => {
               let query = 'select * from users where id = 0';
               if (dbClient == 'bigquery') {
-                query = 'select 1 limit 0';
+                query = `select * from \`google.com:pd-pm-experiments.sqlectron_tests.users\`
+				   where id = 0`;
               }
               const results = await dbConn.executeQuery(query);
               
@@ -736,7 +755,7 @@ describe('db', () => {
               // MSSQL/SQLite does not return the fields when the result is empty.
               // For those DBs that return the field names even when the result
               // is empty we should ensure all fields are included.
-              if (dbClient === 'sqlserver' || dbClient === 'sqlite') {
+              if (dbClient === 'sqlserver' || dbClient === 'sqlite' || dbClient === 'bigquery') {
                 expect(result).to.have.property('fields').to.eql([]);
               } else {
                 const field = (name) => result.fields.find((item) => item.name === name);
@@ -760,7 +779,6 @@ describe('db', () => {
                   + 'ORDER BY weight_pounds DESC LIMIT 1;';
               }
               const results = await dbConn.executeQuery(query);
-              console.log("SPEC RESULTS", results);
               expect(results).to.have.length(1);
               const [result] = results;
               const field = (name) => result.fields.find((item) => item.name === name);
@@ -852,10 +870,18 @@ describe('db', () => {
 
           describe('INSERT', () => {
             it('should execute a single query', async () => {
-              const results = await dbConn.executeQuery(`
+				let query = `
                 insert into users (${includePk ? 'id,' : ''} username, email, password)
                 values (${includePk ? '1,' : ''} 'user', 'user@hotmail.com', '123456')
-              `);
+				`;
+				if (dbClient === 'bigquery') {
+					query = `
+	                insert into \`google.com:pd-pm-experiments.sqlectron_tests.users\`
+					 (${includePk ? 'id,' : ''} username, email, password)
+	                values (${includePk ? '1,' : ''} 'user', 'user@hotmail.com', '123456')
+					`;
+				}
+              const results = await dbConn.executeQuery(query);
 
               expect(results).to.have.length(1);
               const [result] = results;
@@ -865,7 +891,7 @@ describe('db', () => {
               expect(result).to.have.property('fields').to.eql([]);
 
               // Cassandra does not return affectedRows
-              if (dbClient === 'cassandra') {
+              if (dbClient === 'cassandra' || dbClient === 'bigquery') {
                 expect(result).to.have.property('affectedRows').to.eql(undefined);
               } else {
                 expect(result).to.have.property('affectedRows').to.eql(1);
@@ -873,7 +899,7 @@ describe('db', () => {
 
               // MSSQL does not return row count
               // so this value is based in the number of rows
-              if (dbClient === 'sqlserver') {
+              if (dbClient === 'sqlserver' || dbClient === 'bigquery') {
                 expect(result).to.have.property('rowCount').to.eql(0);
               } else {
                 expect(result).to.have.property('rowCount').to.eql(undefined);
@@ -914,7 +940,9 @@ describe('db', () => {
                   expect(secondResult).to.have.property('rows').to.eql([]);
                   expect(secondResult).to.have.property('fields').to.eql([]);
                   expect(secondResult).to.have.property('rowCount').to.eql(undefined);
+				  if (dbClient !== 'bigquery') {
                   expect(secondResult).to.have.property('affectedRows').to.eql(1);
+			  	  }
                 }
               } catch (err) {
                 if (dbClient === 'cassandra') {
@@ -928,9 +956,13 @@ describe('db', () => {
 
           describe('DELETE', () => {
             it('should execute a single query', async () => {
-              const results = await dbConn.executeQuery(`
-                delete from users where id = 1
-              `);
+				let query = 'delete from users where id = 1';
+				if (dbClient === 'bigquery') {
+					query = `delete from 
+					\`google.com:pd-pm-experiments.sqlectron_tests.users\` 
+					where id = 1`;
+				}
+              const results = await dbConn.executeQuery(query);
 
               expect(results).to.have.length(1);
               const [result] = results;
@@ -940,7 +972,7 @@ describe('db', () => {
               expect(result).to.have.property('fields').to.eql([]);
 
               // Cassandra does not return affectedRows
-              if (dbClient === 'cassandra') {
+              if (dbClient === 'cassandra' || dbClient === 'bigquery') {
                 expect(result).to.have.property('affectedRows').to.eql(undefined);
               } else {
                 expect(result).to.have.property('affectedRows').to.eql(1);
@@ -948,7 +980,7 @@ describe('db', () => {
 
               // MSSQL does not return row count
               // so these value is based in the number of rows
-              if (dbClient === 'sqlserver') {
+              if (dbClient === 'sqlserver' || dbClient === 'bigquery') {
                 expect(result).to.have.property('rowCount').to.eql(0);
               } else {
                 expect(result).to.have.property('rowCount').to.eql(undefined);
@@ -957,10 +989,19 @@ describe('db', () => {
 
             it('should execute multiple queries', async () => {
               try {
-                const results = await dbConn.executeQuery(`
+				  let query = `
                   delete from users where username = 'maxcnunes';
                   delete from roles where name = 'developer';
-                `);
+                `
+				  if (dbClient === 'bigquery') {
+				  	query = `
+                  delete from \`google.com:pd-pm-experiments.sqlectron_tests.users\` 
+					   where username = 'maxcnunes';
+                  delete from \`google.com:pd-pm-experiments.sqlectron_tests.roles\` 
+					   where name = 'developer';
+                `
+				  }
+                const results = await dbConn.executeQuery(query);
 
                 // MSSQL treats multiple non select queries as a single query result
                 if (dbClient === 'sqlserver') {
@@ -972,7 +1013,20 @@ describe('db', () => {
                   expect(result).to.have.property('fields').to.eql([]);
                   expect(result).to.have.property('rowCount').to.eql(0);
                   expect(result).to.have.property('affectedRows').to.eql(2);
-                } else {
+                } else if (dbClient === 'bigquery') {
+                    expect(results).to.have.length(2);
+                    const [firstResult, secondResult] = results;
+
+                    expect(firstResult).to.have.property('command').to.eql('DELETE');
+                    expect(firstResult).to.have.property('rows').to.eql([]);
+                    expect(firstResult).to.have.property('fields').to.eql([]);
+                    expect(firstResult).to.have.property('rowCount').to.eql(0);
+                    expect(firstResult).to.have.property('affectedRows').to.eql(undefined);
+                    expect(secondResult).to.have.property('command').to.eql('DELETE');
+                    expect(secondResult).to.have.property('rows').to.eql([]);
+                    expect(secondResult).to.have.property('fields').to.eql([]);
+                    expect(secondResult).to.have.property('rowCount').to.eql(0);					
+				} else {
                   expect(results).to.have.length(2);
                   const [firstResult, secondResult] = results;
 
@@ -980,13 +1034,11 @@ describe('db', () => {
                   expect(firstResult).to.have.property('rows').to.eql([]);
                   expect(firstResult).to.have.property('fields').to.eql([]);
                   expect(firstResult).to.have.property('rowCount').to.eql(undefined);
-                  expect(firstResult).to.have.property('affectedRows').to.eql(1);
 
                   expect(secondResult).to.have.property('command').to.eql('DELETE');
                   expect(secondResult).to.have.property('rows').to.eql([]);
                   expect(secondResult).to.have.property('fields').to.eql([]);
                   expect(secondResult).to.have.property('rowCount').to.eql(undefined);
-                  expect(secondResult).to.have.property('affectedRows').to.eql(1);
                 }
               } catch (err) {
                 if (dbClient === 'cassandra') {
@@ -1016,7 +1068,7 @@ describe('db', () => {
               expect(result).to.have.property('fields').to.eql([]);
 
               // Cassandra does not return affectedRows
-              if (dbClient === 'cassandra') {
+              if (dbClient === 'cassandra' || dbClient === 'bigquery') {
                 expect(result).to.have.property('affectedRows').to.eql(undefined);
               } else {
                 expect(result).to.have.property('affectedRows').to.eql(1);
@@ -1024,7 +1076,7 @@ describe('db', () => {
 
               // MSSQL does not return row count
               // so these value is based in the number of rows
-              if (dbClient === 'sqlserver') {
+              if (dbClient === 'sqlserver' || dbClient === 'bigquery') {
                 expect(result).to.have.property('rowCount').to.eql(0);
               } else {
                 expect(result).to.have.property('rowCount').to.eql(undefined);
@@ -1044,7 +1096,7 @@ describe('db', () => {
 					  `
 				  }
                 const results = await dbConn.executeQuery(query);
-
+				console.log("UPDATE MULTIPLE", results);
                 // MSSQL treats multiple non select queries as a single query result
                 if (dbClient === 'sqlserver') {
                   expect(results).to.have.length(1);
@@ -1055,10 +1107,25 @@ describe('db', () => {
                   expect(result).to.have.property('fields').to.eql([]);
                   expect(result).to.have.property('rowCount').to.eql(0);
                   expect(result).to.have.property('affectedRows').to.eql(2);
-                } else {
+                } else if (dbClient === 'bigquery') {
+                    expect(results).to.have.length(2);
+                    const [firstResult, secondResult] = results;
+				  
+                    expect(firstResult).to.have.property('command').to.eql('UPDATE');
+                    expect(firstResult).to.have.property('rows').to.eql([]);
+                    expect(firstResult).to.have.property('fields').to.eql([]);
+                    expect(firstResult).to.have.property('rowCount').to.eql(0);
+                    expect(firstResult).to.have.property('affectedRows').to.eql(undefined);
+
+                    expect(secondResult).to.have.property('command').to.eql('UPDATE');
+                    expect(secondResult).to.have.property('rows').to.eql([]);
+                    expect(secondResult).to.have.property('fields').to.eql([]);
+                    expect(secondResult).to.have.property('rowCount').to.eql(0);
+					
+				} else {
                   expect(results).to.have.length(2);
                   const [firstResult, secondResult] = results;
-
+				  
                   expect(firstResult).to.have.property('command').to.eql('UPDATE');
                   expect(firstResult).to.have.property('rows').to.eql([]);
                   expect(firstResult).to.have.property('fields').to.eql([]);
@@ -1069,7 +1136,6 @@ describe('db', () => {
                   expect(secondResult).to.have.property('rows').to.eql([]);
                   expect(secondResult).to.have.property('fields').to.eql([]);
                   expect(secondResult).to.have.property('rowCount').to.eql(undefined);
-                  expect(secondResult).to.have.property('affectedRows').to.eql(1);
                 }
               } catch (err) {
                 if (dbClient === 'cassandra') {
@@ -1081,7 +1147,7 @@ describe('db', () => {
             });
           });
 
-          if (dbClient !== 'cassandra' && dbClient !== 'sqlite') {
+          if (dbClient !== 'cassandra' && dbClient !== 'sqlite' && dbClient !== 'bigquery') {
             describe('CREATE', () => {
               describe('DATABASE', () => {
                 beforeEach(async () => {
@@ -1099,12 +1165,6 @@ describe('db', () => {
                   if (dbClient === 'sqlserver') {
                     expect(results).to.have.length(0);
                     return;
-                  } 
-				  if (dbClient === 'bigquery') {
-					  console.log("EXPECT ERROR!");
-					  console.log(err.message);
-					  expect(err.message).to.eql('Statement not supported: CreateDatabaseStatement at [1:1]');
-					  return;
                   }
 
                   expect(results).to.have.length(1);
