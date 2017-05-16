@@ -118,14 +118,8 @@ describe('db', () => {
 			  	  	keyFilename: '.sqlelectron_service_account.json',
 				}
 			}
-			// console.log("serverInfo");
-			// console.log(serverInfo);
           serverSession = db.createServer(serverInfo);
-		  // console.log("serverSession");
-		  // console.log(serverSession);
           dbConn = serverSession.createConnection(serverInfo.database);
-		  // console.log("dbConn");
-		  // console.log(dbConn);
           return dbConn.connect();
         });
 
@@ -805,6 +799,8 @@ describe('db', () => {
             }
 
             it('should execute multiple queries', async () => {
+			  if (dbClient != 'bigquery') {
+				
               try {
                 const results = await dbConn.executeQuery(`
                   select * from users;
@@ -842,7 +838,16 @@ describe('db', () => {
                   throw err;
                 }
               }
-            });
+            } else {
+                const results = await dbConn.executeQuery(`
+					SELECT weight_pounds, state, year, gestation_weeks
+					FROM \`bigquery-public-data.samples.natality\`
+					ORDER BY weight_pounds DESC LIMIT 1;
+					SELECT COUNT(*) FROM \`bigquery-public-data.samples.natality\`;
+                `);
+				expect(results).to.have.length(2);
+            }
+		});
           });
 
           describe('INSERT', () => {

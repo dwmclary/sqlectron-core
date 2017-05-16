@@ -120,6 +120,24 @@ function parseQueryResults(results) {
       return response;
 }
 
+function executeSingleQuery(client, queryText) {
+    let queryObject = {
+      query: queryText,
+      useLegacySql: false,
+    }
+    let data = [];
+    return new Promise((resolve, reject) => {
+      client.query(queryObject, function(err, rows) {
+        if (err) {
+			console.log(err);
+			return reject(err)
+		};
+      
+        resolve(parseQueryResults(rows));
+      });
+    });
+}
+
 function executeQuery(client, queryText) {
   console.log("querytext");
   console.log(queryText);
@@ -127,19 +145,23 @@ function executeQuery(client, queryText) {
   // set the project to the default project ID
   // client.projectId = client.defaultProject;
   // console.log(client.projectId);
-  
-  let queryObject = {
-    query: queryText,
-    useLegacySql: false,
+  const commands = identifyCommands(queryText);
+  console.log(commands);
+  let results = [];
+  for (var i = 0; i < commands.length; i++) {
+	  let thisResult = executeSingleQuery(client, commands[i].text);
+	  results.push(thisResult);
   }
-  let data = [];
-  return new Promise((resolve, reject) => {
-    client.query(queryObject, function(err, rows) {
-      if (err) return reject(err);
-      
-      resolve(parseQueryResults(rows));
-    });
-  });
+  return Promise.all(results);
+  
+}
+
+function identifyCommands(queryText) {
+  try {
+    return identify(queryText);
+  } catch (err) {
+    return [];
+  }
 }
 
 /*eslint-disable */
