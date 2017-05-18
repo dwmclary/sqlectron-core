@@ -43,6 +43,11 @@ export default function (bqconfig) {
         getQuerySelectTop: (table, limit) => getQuerySelectTop(client, table, limit),
         getTableCreateScript: (table) => getTableCreateScript(client, table),
         getViewCreateScript: (view) => getViewCreateScript(client, view),
+		getTableSelectScript: (table, schema) => getTableSelectScript(client, table, schema),
+		getTableInsertScript: (table, schema) => getTableInsertScript(client, table, schema),
+		getTableUpdateScript: (table, schema) => getTableUpdateScript(client, table, schema),
+		getTableDeleteScript: (table, schema) => getTableDeleteScript(client, table, schema),
+		  
       };
 }
 
@@ -86,6 +91,95 @@ function getViewCreateScript() {
 
 function getRoutineCreateScript() {
   return Promise.resolve([]);
+}
+
+export async function getTableSelectScript(client, table, schema) {
+    let thisDataset = '';
+    let thisTable = '';
+    if (table.indexOf('.') > 0) {
+      thisTable = table.split('.')[1];
+      thisDataset = table.split('.')[0];
+    }
+	let queryTable = table;
+	if (typeof(schema) != 'undefined') {
+		queryTable = schema+"."+queryTable;
+	}
+	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
+		return data[0];
+	});
+	columns = columns.schema.fields.map(function (x) {return x.name;});
+	const query = [
+      `SELECT ${columns.join(', ')}`,
+      `FROM \`${queryTable}\`;`,
+    ].join(' ');
+	console.log("query", query);
+	return query;
+}
+
+export async function getTableInsertScript(client, table, schema) {
+    let thisDataset = '';
+    let thisTable = '';
+    if (table.indexOf('.') > 0) {
+      thisTable = table.split('.')[1];
+      thisDataset = table.split('.')[0];
+    }
+	let queryTable = table;
+	if (typeof(schema) != 'undefined') {
+		queryTable = schema+"."+queryTable;
+	}
+	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
+		return data[0];
+	});
+	columns = columns.schema.fields.map(function (x) {return x.name;});
+	const query = [
+      `INSERT \`${queryTable}\`
+	  (${columns.join(', ')})`,
+      `VALUES (${columns.map(function(x){return "?";}).join(',')});`,
+    ].join(' ');
+	console.log("query", query);
+	return query;
+}
+
+export async function getTableUpdateScript(client, table, schema) {
+	console.log("in BQ tableselectscript");
+	console.log(table);
+	console.log(schema);
+    let thisDataset = '';
+    let thisTable = '';
+    if (table.indexOf('.') > 0) {
+      thisTable = table.split('.')[1];
+      thisDataset = table.split('.')[0];
+    }
+	let queryTable = table;
+	if (typeof(schema) != 'undefined') {
+		queryTable = schema+"."+queryTable;
+	}
+	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
+		return data[0];
+	});
+	console.log("columns", columns);
+	columns = columns.schema.fields.map(function (x) {return x.name+"=?";});
+	const query = [
+      `UPDATE \`${queryTable}\`
+	  SET ${columns.join(', ')}`,
+      `WHERE <condition>;`,
+    ].join(' ');
+	console.log("query", query);
+	return query;
+}
+
+export async function getTableDeleteScript(client, table, schema) {
+	let queryTable = table;
+	if (typeof(schema) != 'undefined') {
+		queryTable = schema+"."+queryTable;
+	}
+	const query = [
+      `DELETE FROM`,
+      `FROM \`${queryTable}\``
+		`WHERE <condition>`,
+    ].join(' ');
+	console.log("query", query);
+	return query;
 }
 
 function configDatabase(keyfile, project, database) {
@@ -136,31 +230,20 @@ export async function listTables(client, dataset) {
 }
 
 export async function listTableColumns(client, table) {
-	console.log(table);
-    let thisDataset = table;
-    let thisProject = '';
+    let thisDataset = '';
     let thisTable = '';
-    if (thisDataset.indexOf(':') >= 0) {
-  	  const projectElements = thisDataset.split(':');
-   	  let newProject = projectElements[0];
-  	  if (projectElements.length > 2) {
-  	  	newProject = projectElements[0] + ':' + projectElements[1];
-  	  }
-      thisDataset = projectElements[projectElements.length - 1];
-      // client.projectId = newProject;
-      thisTable = thisDataset.split('.')[1];
-      thisDataset = thisDataset.split('.')[0];
+    if (table.indexOf('.') > 0) {
+      thisTable = table.split('.')[1];
+      thisDataset = table.split('.')[0];
     }
-    console.log("thisDataset", thisDataset);
-    console.log("thisTable", thisTable);
-    let myDataset = client.dataset(thisDataset);
-    let myTable = myDataset.table(thisTable);
-    let result = {}
-    myTable.getMetadata().then(function(data) {
-      result.data = data[0].schema.fields;
-    });
-    return result.data;
-	
+	const data = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function (x) {
+		return x[0].schema.fields.map(function(x) {
+			return {columnName: x.name,
+			dataType: x.type,
+				mode: x.mode};
+		});
+	});
+	return data;
 }
 
 export async function listViews(client, dataset) {

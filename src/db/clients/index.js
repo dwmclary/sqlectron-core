@@ -80,7 +80,6 @@ export const CLIENTS = [
       'server:schema',
       'server:domain',
       'server:ssh',
-      'listViews',
       'listRoutines',
       'listTableTriggers',
       'listTableIndexes',

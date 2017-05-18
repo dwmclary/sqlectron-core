@@ -211,8 +211,7 @@ describe('db', () => {
           it('should list all columns and their type from users table', async() => {
             let columns = [];
 			if (dbClient === 'bigquery') {
-				columns = await dbConn.listTableColumns('google.com:pd-pm-experiments:sqlectron-tests.users');
-        console.log(columns);
+				columns = await dbConn.listTableColumns('sqlectron_tests.users');
 			} else {
 				columns = await dbConn.listTableColumns('users');
 			}
@@ -228,7 +227,7 @@ describe('db', () => {
             expect(column('role_id')).to.exist;
             expect(column('createdat')).to.exist;
 
-            if (dbClient === 'sqlite') {
+            if (dbClient === 'sqlite' || dbClient === 'bigquery') {
               expect(column('id')).to.have.property('dataType').to.have.string('INTEGER');
             } else {
               expect(column('id')).to.have.property('dataType').to.have.string('int');
@@ -253,6 +252,12 @@ describe('db', () => {
               expect(column('password')).to.have.property('dataType').to.eql('text');
               expect(column('role_id')).to.have.property('dataType').to.eql('int');
               expect(column('createdat')).to.have.property('dataType').to.eql('timestamp');
+            } else if (dbClient === 'bigquery') {
+                expect(column('username')).to.have.property('dataType').to.eql('STRING');
+                expect(column('email')).to.have.property('dataType').to.eql('STRING');
+                expect(column('password')).to.have.property('dataType').to.eql('STRING');
+                expect(column('role_id')).to.have.property('dataType').to.eql('INTEGER');
+                expect(column('createdat')).to.have.property('dataType').to.eql('DATETIME');
             } else {
               expect(column('username')).to.have.property('dataType').to.eql('varchar');
               expect(column('email')).to.have.property('dataType').to.eql('varchar');
@@ -408,7 +413,12 @@ describe('db', () => {
 
         describe('.getTableSelectScript', () => {
           it('should return SELECT table script', async() => {
-            const selectQuery = await dbConn.getTableSelectScript('users');
+			  let table = 'users';
+			  if (dbClient === 'bigquery') {
+				  table = 'sqlectron_tests.users';
+			  }
+            const selectQuery = await dbConn.getTableSelectScript(table);
+			console.log(selectQuery);
             if (dbClient === 'mysql') {
               expect(selectQuery).to.eql('SELECT `id`, `username`, `email`, `password`, `role_id`, `createdat` FROM `users`;');
             } else if (dbClient === 'sqlserver') {
@@ -417,16 +427,26 @@ describe('db', () => {
               expect(selectQuery).to.eql('SELECT "id", "username", "email", "password", "role_id", "createdat" FROM "users";');
             } else if (dbClient === 'cassandra') {
               expect(selectQuery).to.eql('SELECT "id", "createdat", "email", "password", "role_id", "username" FROM "users";');
-            } else {
+            } else if (dbClient === 'bigquery') {
+			  expect(selectQuery).to.eql('SELECT id, username, email, password, role_id, createdat FROM `sqlectron_tests.users`;');
+			} else {
               throw new Error('Invalid db client');
             }
           });
 
           it('should return SELECT table script with schema if defined', async() => {
-            const selectQuery = await dbConn.getTableSelectScript('users', 'public');
+			  let table = 'users';
+			  let schema = 'public'
+			  if (dbClient === 'bigquery') {
+				  table = 'sqlectron_tests.users';
+				  schema = 'google.com:pd-pm-experiments';
+			  }
+            const selectQuery = await dbConn.getTableSelectScript(table, schema);
             if (dbClient === 'sqlserver') {
               expect(selectQuery).to.eql('SELECT [id], [username], [email], [password], [role_id], [createdat] FROM [public].[users];');
-            } else if (dbClient === 'postgresql') {
+            } else if (dbClient === 'bigquery') {
+			  expect(selectQuery).to.eql('SELECT id, username, email, password, role_id, createdat FROM `google.com:pd-pm-experiments.sqlectron_tests.users`;');
+			} else if (dbClient === 'postgresql') {
               expect(selectQuery).to.eql('SELECT "id", "username", "email", "password", "role_id", "createdat" FROM "public"."users";');
             }
           });
@@ -435,7 +455,11 @@ describe('db', () => {
 
         describe('.getTableInsertScript', () => {
           it('should return INSERT INTO table script', async() => {
-            const insertQuery = await dbConn.getTableInsertScript('users');
+			  let table = 'users';
+			  if (dbClient === 'bigquery') {
+				  table = 'sqlectron_tests.users';
+			  }
+            const insertQuery = await dbConn.getTableInsertScript(table);
             if (dbClient === 'mysql') {
               expect(insertQuery).to.eql([
                 'INSERT INTO `users` (`id`, `username`, `email`, `password`, `role_id`, `createdat`)\n',
@@ -479,7 +503,11 @@ describe('db', () => {
 
         describe('.getTableUpdateScript', () => {
           it('should return UPDATE table script', async() => {
-            const updateQuery = await dbConn.getTableUpdateScript('users');
+			  let table = 'users';
+			  if (dbClient === 'bigquery') {
+				  table = 'sqlectron_tests.users';
+			  }
+            const updateQuery = await dbConn.getTableUpdateScript(table);
             if (dbClient === 'mysql') {
               expect(updateQuery).to.eql([
                 'UPDATE `users`\n',
@@ -498,7 +526,12 @@ describe('db', () => {
                 'SET "id"=?, "username"=?, "email"=?, "password"=?, "role_id"=?, "createdat"=?\n',
                 'WHERE <condition>;',
               ].join(' '));
-            } else if (dbClient === 'cassandra') {
+            } else if (dbClient === 'bigquery') {
+				expect(updateQuery).to.eql(
+					`UPDATE \`sqlectron_tests.users\`
+					SET id=?, username=?, email=?, password=?, role_id=?, createdat=? WHERE <condition>`
+				)
+			} else if (dbClient === 'cassandra') {
               expect(updateQuery).to.eql([
                 'UPDATE "users"\n',
                 'SET "id"=?, "createdat"=?, "email"=?, "password"=?, "role_id"=?, "username"=?\n',
@@ -529,7 +562,11 @@ describe('db', () => {
 
         describe('.getTableDeleteScript', () => {
           it('should return table DELETE script', async() => {
-            const deleteQuery = await dbConn.getTableDeleteScript('roles');
+			  let table = 'roles';
+			  if (dbClient === 'bigquery') {
+				  table = 'sqlectron_tests.roles';
+			  }
+            const deleteQuery = await dbConn.getTableDeleteScript(table);
             if (dbClient === 'mysql') {
               expect(deleteQuery).to.contain('DELETE FROM `roles` WHERE <condition>;');
             } else if (dbClient === 'sqlserver') {
@@ -909,21 +946,23 @@ describe('db', () => {
 
             it('should execute multiple queries', async () => {
               try {
-                let query = `
+				  let query = `
                   insert into users (username, email, password)
                   values ('user', 'user@hotmail.com', '123456');
 
                   insert into roles (name)
-                  values ('manager');`
-                if (dbClient === 'bigquery') {
-                  query = `insert into \`google.com:pd-pm-experiments.sqlectron_tests.users\`
-                   (id, username, email, password)
+                  values ('manager');
+				  `;
+				  if (dbClient === 'bigquery') {
+				  	query = `
+                  insert into \`google.com:pd-pm-experiments.sqlectron_tests.users\` 
+					  (id, username, email, password)
                   values (1, 'user', 'user@hotmail.com', '123456');
 
-                  insert into \`google.com:pd-pm-experiments.sqlectron_tests.roles\`
-                  (id, name)
-                  values (1, 'manager');`
-                }
+                  insert into  \`google.com:pd-pm-experiments.sqlectron_tests.roles\` 
+				  (id, name) values (1, 'manager');
+				  `
+				  }
                 const results = await dbConn.executeQuery(query);
 
                 // MSSQL treats multiple non select queries as a single query result
@@ -937,20 +976,21 @@ describe('db', () => {
                   expect(result).to.have.property('rowCount').to.eql(0);
                   expect(result).to.have.property('affectedRows').to.eql(2);
                 } else if (dbClient === 'bigquery') {
-                  expect(results).to.have.length(2);
-                  const [firstResult, secondResult] = results;
+                    expect(results).to.have.length(2);
+                    const [firstResult, secondResult] = results;
 
-                  expect(firstResult).to.have.property('command').to.eql('INSERT');
-                  expect(firstResult).to.have.property('rows').to.eql([]);
-                  expect(firstResult).to.have.property('fields').to.eql([]);
-                  expect(firstResult).to.have.property('rowCount').to.eql(0);
-                  expect(firstResult).to.have.property('affectedRows').to.eql(undefined);
+                    expect(firstResult).to.have.property('command').to.eql('INSERT');
+                    expect(firstResult).to.have.property('rows').to.eql([]);
+                    expect(firstResult).to.have.property('fields').to.eql([]);
+                    expect(firstResult).to.have.property('rowCount').to.eql(undefined);
+                    expect(firstResult).to.have.property('affectedRows').to.eql(1);
 
-                  expect(secondResult).to.have.property('command').to.eql('INSERT');
-                  expect(secondResult).to.have.property('rows').to.eql([]);
-                  expect(secondResult).to.have.property('fields').to.eql([]);
-                  expect(secondResult).to.have.property('rowCount').to.eql(0);
-                } else {
+                    expect(secondResult).to.have.property('command').to.eql('INSERT');
+                    expect(secondResult).to.have.property('rows').to.eql([]);
+                    expect(secondResult).to.have.property('fields').to.eql([]);
+                    expect(secondResult).to.have.property('rowCount').to.eql(0);
+                    expect(secondResult).to.have.property('affectedRows').to.eql(undefined);
+				} else {
                   expect(results).to.have.length(2);
                   const [firstResult, secondResult] = results;
 
@@ -1079,7 +1119,6 @@ describe('db', () => {
 					set username = 'max' where id = 1`;
 				}
               const results = await dbConn.executeQuery(query);
-			  console.log("SPEC RESULTS:",results);
 
               expect(results).to.have.length(1);
               const [result] = results;
@@ -1117,7 +1156,7 @@ describe('db', () => {
 					  `
 				  }
                 const results = await dbConn.executeQuery(query);
-				console.log("UPDATE MULTIPLE", results);
+
                 // MSSQL treats multiple non select queries as a single query result
                 if (dbClient === 'sqlserver') {
                   expect(results).to.have.length(1);
