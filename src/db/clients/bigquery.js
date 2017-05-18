@@ -47,7 +47,7 @@ export default function (bqconfig) {
 		getTableInsertScript: (table, schema) => getTableInsertScript(client, table, schema),
 		getTableUpdateScript: (table, schema) => getTableUpdateScript(client, table, schema),
 		getTableDeleteScript: (table, schema) => getTableDeleteScript(client, table, schema),
-		  
+        getRoutineCreateScript: (routine) => getRoutineCreateScript(),
       };
 }
 
@@ -112,7 +112,6 @@ export async function getTableSelectScript(client, table, schema) {
       `SELECT ${columns.join(', ')}`,
       `FROM \`${queryTable}\`;`,
     ].join(' ');
-	console.log("query", query);
 	return query;
 }
 
@@ -132,18 +131,18 @@ export async function getTableInsertScript(client, table, schema) {
 	});
 	columns = columns.schema.fields.map(function (x) {return x.name;});
 	const query = [
-      `INSERT \`${queryTable}\`
-	  (${columns.join(', ')})`,
+      `INSERT \`${queryTable}\``,
+	  `(${columns.join(', ')})`,
       `VALUES (${columns.map(function(x){return "?";}).join(',')});`,
     ].join(' ');
-	console.log("query", query);
+	// console.log("query", query);
 	return query;
 }
 
 export async function getTableUpdateScript(client, table, schema) {
-	console.log("in BQ tableselectscript");
-	console.log(table);
-	console.log(schema);
+	// console.log("in BQ tableselectscript");
+	// console.log(table);
+	// console.log(schema);
     let thisDataset = '';
     let thisTable = '';
     if (table.indexOf('.') > 0) {
@@ -157,14 +156,15 @@ export async function getTableUpdateScript(client, table, schema) {
 	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
 		return data[0];
 	});
-	console.log("columns", columns);
+	// console.log("columns", columns);
 	columns = columns.schema.fields.map(function (x) {return x.name+"=?";});
 	const query = [
-      `UPDATE \`${queryTable}\`
-	  SET ${columns.join(', ')}`,
+      `UPDATE`,
+    '\`'+`${queryTable}`+'\`',
+	  `SET ${columns.join(', ')}`,
       `WHERE <condition>;`,
     ].join(' ');
-	console.log("query", query);
+	// console.log("query", query);
 	return query;
 }
 
@@ -174,11 +174,12 @@ export async function getTableDeleteScript(client, table, schema) {
 		queryTable = schema+"."+queryTable;
 	}
 	const query = [
-      `DELETE FROM`,
-      `FROM \`${queryTable}\``
+      `DELETE`,
+      'FROM',
+    '\`'+`${queryTable}`+'\`',
 		`WHERE <condition>`,
     ].join(' ');
-	console.log("query", query);
+	// console.log("delete query", query);
 	return query;
 }
 

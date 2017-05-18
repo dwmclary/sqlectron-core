@@ -475,6 +475,9 @@ describe('db', () => {
                 'INSERT INTO "users" ("id", "username", "email", "password", "role_id", "createdat")\n',
                 'VALUES (?, ?, ?, ?, ?, ?);',
               ].join(' '));
+            } else if (dbClient === 'bigquery') {
+              expect(insertQuery).to.eql(['INSERT `sqlectron_tests.users`',
+	            '(id, username, email, password, role_id, createdat) VALUES (?,?,?,?,?,?);'].join(' '))
             } else if (dbClient === 'cassandra') {
               expect(insertQuery).to.eql([
                 'INSERT INTO "users" ("id", "createdat", "email", "password", "role_id", "username")\n',
@@ -486,12 +489,21 @@ describe('db', () => {
           });
 
           it('should return INSERT INTO table script with schema if defined', async() => {
-            const insertQuery = await dbConn.getTableInsertScript('users', 'public');
+            let table = 'users';
+            let schema = 'public'
+    			  if (dbClient === 'bigquery') {
+    				  table = 'sqlectron_tests.users';
+    				  schema = 'google.com:pd-pm-experiments';
+    			  }
+            const insertQuery = await dbConn.getTableInsertScript(table, schema);
             if (dbClient === 'sqlserver') {
               expect(insertQuery).to.eql([
                 'INSERT INTO [public].[users] ([id], [username], [email], [password], [role_id], [createdat])\n',
                 'VALUES (?, ?, ?, ?, ?, ?);',
               ].join(' '));
+            } else if (dbClient === 'bigquery') {
+              expect(insertQuery).to.eql(['INSERT `google.com:pd-pm-experiments.sqlectron_tests.users`',
+	            '(id, username, email, password, role_id, createdat) VALUES (?,?,?,?,?,?);'].join(' '));
             } else if (dbClient === 'postgresql' || dbClient === 'sqlite') {
               expect(insertQuery).to.eql([
                 'INSERT INTO "public"."users" ("id", "username", "email", "password", "role_id", "createdat")\n',
@@ -527,10 +539,10 @@ describe('db', () => {
                 'WHERE <condition>;',
               ].join(' '));
             } else if (dbClient === 'bigquery') {
-				expect(updateQuery).to.eql(
-					`UPDATE \`sqlectron_tests.users\`
-					SET id=?, username=?, email=?, password=?, role_id=?, createdat=? WHERE <condition>`
-				)
+				expect(updateQuery).to.eql(['UPDATE `sqlectron_tests.users`',
+              'SET id=?, username=?, email=?, password=?, role_id=?, createdat=?',
+              'WHERE <condition>;'].join(' ')
+				);
 			} else if (dbClient === 'cassandra') {
               expect(updateQuery).to.eql([
                 'UPDATE "users"\n',
@@ -543,13 +555,23 @@ describe('db', () => {
           });
 
           it('should return UPDATE table script with schema if defined', async() => {
-            const updateQuery = await dbConn.getTableUpdateScript('users', 'public');
+            let table = 'users';
+            let schema = 'public'
+    			  if (dbClient === 'bigquery') {
+    				  table = 'sqlectron_tests.users';
+    				  schema = 'google.com:pd-pm-experiments';
+    			  }
+            const updateQuery = await dbConn.getTableUpdateScript(table, schema);
             if (dbClient === 'sqlserver') {
               expect(updateQuery).to.eql([
                 'UPDATE [public].[users]\n',
                 'SET [id]=?, [username]=?, [email]=?, [password]=?, [role_id]=?, [createdat]=?\n',
                 'WHERE <condition>;',
-              ].join(' '));
+              ].join(' '))
+            } else if (dbClient === 'bigquery') {
+              expect(updateQuery).to.eql(['UPDATE `google.com:pd-pm-experiments.sqlectron_tests.users`',
+              'SET id=?, username=?, email=?, password=?, role_id=?, createdat=?',
+              'WHERE <condition>;'].join(' '))
             } else if (dbClient === 'postgresql' || dbClient === 'sqlite') {
               expect(updateQuery).to.eql([
                 'UPDATE "public"."users"\n',
@@ -573,6 +595,8 @@ describe('db', () => {
               expect(deleteQuery).to.contain('DELETE FROM [roles] WHERE <condition>;');
             } else if (dbClient === 'postgresql' || dbClient === 'sqlite') {
               expect(deleteQuery).to.contain('DELETE FROM "roles" WHERE <condition>;');
+            } else if (dbClient === 'bigquery') {
+              expect(deleteQuery).to.contain('DELETE FROM `sqlectron_tests.roles` WHERE <condition>');
             } else if (dbClient === 'cassandra') {
               expect(deleteQuery).to.contain('DELETE FROM "roles" WHERE <condition>;');
             } else {
@@ -581,9 +605,17 @@ describe('db', () => {
           });
 
           it('should return table DELETE script with schema if defined', async() => {
-            const deleteQuery = await dbConn.getTableDeleteScript('roles', 'public');
+    			  let table = 'roles';
+            let schema = 'public';
+    			  if (dbClient === 'bigquery') {
+    				  table = 'sqlectron_tests.roles';
+              schema = 'google.com:pd-pm-experiments'
+    			  }
+            const deleteQuery = await dbConn.getTableDeleteScript(table, schema);
             if (dbClient === 'sqlserver') {
               expect(deleteQuery).to.contain('DELETE FROM [public].[roles] WHERE <condition>;');
+            } else if (dbClient === 'bigquery') {
+              expect(deleteQuery).to.contain('DELETE FROM `google.com:pd-pm-experiments.sqlectron_tests.roles` WHERE <condition>');
             } else if (dbClient === 'postgresql') {
               expect(deleteQuery).to.contain('DELETE FROM "public"."roles" WHERE <condition>;');
             }
@@ -619,7 +651,7 @@ describe('db', () => {
                 '  SELECT users.email, users.password',
                 '  FROM users',
               ].join('\n'));
-            } else if (dbClient === 'cassandra') {
+            } else if (dbClient === 'cassandra' || dbClient === 'bigquery') {
               expect(createScript).to.eql(undefined);
             } else {
               throw new Error('Invalid db client');
@@ -652,7 +684,7 @@ describe('db', () => {
               expect(createScript).to.contain('CREATE PROCEDURE dbo.users_count');
               expect(createScript).to.contain('@Count int OUTPUT');
               expect(createScript).to.contain('SELECT @Count = COUNT(*) FROM dbo.users');
-            } else if (dbClient === 'cassandra' || dbClient === 'sqlite') {
+            } else if (dbClient === 'cassandra' || dbClient === 'sqlite' || dbClient === 'bigquery') {
               expect(createScript).to.eql(undefined);
             } else {
               throw new Error('Invalid db client');
@@ -660,7 +692,7 @@ describe('db', () => {
           });
         });
 
-        if (dbClient !== 'cassandra') {
+        if (dbClient !== 'cassandra' && dbClient !== 'bigquery') {
           describe('.query', function () { // eslint-disable-line func-names
             this.timeout(15000);
 
@@ -982,15 +1014,15 @@ describe('db', () => {
                     expect(firstResult).to.have.property('command').to.eql('INSERT');
                     expect(firstResult).to.have.property('rows').to.eql([]);
                     expect(firstResult).to.have.property('fields').to.eql([]);
-                    expect(firstResult).to.have.property('rowCount').to.eql(undefined);
-                    expect(firstResult).to.have.property('affectedRows').to.eql(1);
+                    expect(firstResult).to.have.property('rowCount').to.eql(0);
+                    expect(firstResult).to.have.property('affectedRows').to.eql(undefined);
 
                     expect(secondResult).to.have.property('command').to.eql('INSERT');
                     expect(secondResult).to.have.property('rows').to.eql([]);
                     expect(secondResult).to.have.property('fields').to.eql([]);
                     expect(secondResult).to.have.property('rowCount').to.eql(0);
                     expect(secondResult).to.have.property('affectedRows').to.eql(undefined);
-				} else {
+				          } else {
                   expect(results).to.have.length(2);
                   const [firstResult, secondResult] = results;
 
