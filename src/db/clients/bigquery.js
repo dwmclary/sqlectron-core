@@ -10,12 +10,6 @@ const logger = createLogger('db:clients:bigquery');
 
 var bqClient = {};
 
-export function createServer(serverConfig) {
-}
-
-export function createConnection(serverConfig) {
-}
-
 export default function (bqconfig) {
   // return new Promise(async (resolve, reject) => {
     // const dbConfig = configDatabase(bqconfig.keyfile, bqconfig.project, bqconfig.database);
@@ -26,6 +20,7 @@ export default function (bqconfig) {
 		    client: client,
         defaultProject: bqconfig.database.projectId,
         wrapIdentifier,
+        createServer: (serverConfig) => createServer(serverConfig),
         connect: () => connect(),
         disconnect: () => disconnect(),
         listTables: (dataset) => listTables(client, dataset),

@@ -70,10 +70,13 @@ describe('db', () => {
             name: dbClient,
             client: dbClient,
           };
-          serverInfo.database = {
-			projectId: "google.com:pd-pm-experiments",
-	  	  	keyFilename: ".sqlelectron_service_account.json",
+          serverInfo.socketPath = ".sqlelectron_service_account.json";
+          serverInfo.database = "google.com:pd-pm-experiments";
+          let bqAuth = {
+			projectId: serverInfo.database,
+	  	  	keyFilename: serverInfo.socketPath,
 		  }
+      serverInfo.database = bqAuth;
 		  
 		  const serverSession = db.createServer(serverInfo);
 		  const dbConn = serverSession.createConnection(serverInfo.database);
@@ -90,10 +93,13 @@ describe('db', () => {
             client: dbClient,
           };
   		if (dbClient == 'bigquery') {
-            serverInfo.database = {
-				projectId: "google.com:pd-pm-experiments",
-		  	  	keyFilename: ".sqlelectron_service_account.json",
-			}
+        serverInfo.socketPath = ".sqlelectron_service_account.json";
+        serverInfo.database = "google.com:pd-pm-experiments";
+        let bqAuth = {
+		projectId: serverInfo.database,
+  	  	keyFilename: serverInfo.socketPath,
+	  }
+    serverInfo.database = bqAuth;
 		  }
 
           const serverSession = db.createServer(serverInfo);
@@ -113,10 +119,13 @@ describe('db', () => {
         let dbConn;
         beforeEach(() => {
 			if (dbClient == 'bigquery') {
-	            serverInfo.database = {
-					projectId: 'google.com:pd-pm-experiments',
-			  	  	keyFilename: '.sqlelectron_service_account.json',
-				}
+        serverInfo.socketPath = ".sqlelectron_service_account.json";
+        serverInfo.database = "google.com:pd-pm-experiments";
+        let bqAuth = {
+		projectId: serverInfo.database,
+  	  	keyFilename: serverInfo.socketPath,
+	  }
+    serverInfo.database = bqAuth;
 			}
           serverSession = db.createServer(serverInfo);
           dbConn = serverSession.createConnection(serverInfo.database);
