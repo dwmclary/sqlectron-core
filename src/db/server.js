@@ -4,6 +4,7 @@ import { CLIENTS } from './clients';
 
 
 export function createServer(serverConfig) {
+  console.log("createServer", serverConfig);
   if (!serverConfig) {
     throw new Error('Missing server configuration');
   }
@@ -54,7 +55,11 @@ export function createServer(serverConfig) {
         connection: null,
         connecting: false,
       };
-
+      console.log("database in server createConnection");
+      console.log("server", server);
+      console.log("database", database);
+      console.log("serverconfig", serverConfig);
+      console.log(createConnection);
       server.db[dbName] = createConnection(server, database);
 
       return server.db[dbName];

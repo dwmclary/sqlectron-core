@@ -76,7 +76,7 @@ describe('db', () => {
 			projectId: serverInfo.database,
 	  	  	keyFilename: serverInfo.socketPath,
 		  }
-      serverInfo.database = bqAuth;
+      serverInfo.database = bqAuth.projectId + '||'+bqAuth.keyFilename;
 		  
 		  const serverSession = db.createServer(serverInfo);
 		  const dbConn = serverSession.createConnection(serverInfo.database);
@@ -99,7 +99,7 @@ describe('db', () => {
 		projectId: serverInfo.database,
   	  	keyFilename: serverInfo.socketPath,
 	  }
-    serverInfo.database = bqAuth;
+    serverInfo.database = bqAuth.projectId + '||'+bqAuth.keyFilename;
 		  }
 
           const serverSession = db.createServer(serverInfo);
@@ -125,7 +125,7 @@ describe('db', () => {
 		projectId: serverInfo.database,
   	  	keyFilename: serverInfo.socketPath,
 	  }
-    serverInfo.database = bqAuth;
+    serverInfo.database = bqAuth.projectId + '||'+bqAuth.keyFilename;
 			}
           serverSession = db.createServer(serverInfo);
           dbConn = serverSession.createConnection(serverInfo.database);

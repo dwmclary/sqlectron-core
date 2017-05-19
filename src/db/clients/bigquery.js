@@ -11,14 +11,15 @@ const logger = createLogger('db:clients:bigquery');
 var bqClient = {};
 
 export default function (bqconfig) {
-  // return new Promise(async (resolve, reject) => {
-    // const dbConfig = configDatabase(bqconfig.keyfile, bqconfig.project, bqconfig.database);
+
     logger().debug('creating database client %j', bqconfig);
-    const client  = BigQuery(bqconfig.database);
-	bqClient = BigQuery(bqconfig.database);
+    console.log('database in lib is:', bqconfig.database);
+    let projectId = bqconfig.database.split('||')[0];
+    let keyFilename = bqconfig.database.split('||')[1];
+    const client  = BigQuery({projectId: projectId, keyFilename: keyFilename});
+	bqClient = BigQuery({projectId: projectId, keyFilename: keyFilename});
       return{
 		    client: client,
-        defaultProject: bqconfig.database.projectId,
         wrapIdentifier,
         createServer: (serverConfig) => createServer(serverConfig),
         connect: () => connect(),
