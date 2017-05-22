@@ -231,7 +231,6 @@ export async function listTables(client, dataset) {
   for (let i = 0; i< schemas.length; i++) {
     console.log("thisDataset s[i]", schemas[i]);
     const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
-      console.log(s, x);
       return x[0].map(function(y){return {name: y.id}});
     });
     console.log(data);
