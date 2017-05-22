@@ -252,10 +252,10 @@ export async function listTableColumns(client, table, schema) {
     } else {
       thisTable = table;
     }
-    if (typeof(schema) != 'undefined') {
-      thisDataset = schema;
-    }
-    console.log("listing columns for", thisTable, thisDataset);
+    // if (typeof(schema) != 'undefined') {
+    //   thisDataset = schema;
+    // }
+    console.log("listing columns for",table,  thisTable, thisDataset);
 	const data = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function (x) {
 		return x[0].schema.fields.map(function(x) {
 			return {columnName: x.name,
