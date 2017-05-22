@@ -282,7 +282,7 @@ export async function listViews(client, dataset) {
   console.log("thisDataset", thisDataset);
   let schemas = thisDataset.split(',');
   for (let i = 0; i< schemas.length; i++) {
-  const data  = await client.dataset(thisDataset).getTables().then(function(x) {
+  const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
     let views = x[0].filter(function(x) {return x.metadata.type == "VIEW";});
     return views.map(function(y){return {name: y.id}});
   });
