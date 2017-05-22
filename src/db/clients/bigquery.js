@@ -21,13 +21,14 @@ export default function (bqconfig) {
       return{
 		    client: client,
         wrapIdentifier,
+        isBigQuery: () => function() {return true;}, 
         createServer: (serverConfig) => createServer(serverConfig),
         connect: () => connect(),
         disconnect: () => disconnect(),
         listTables: (dataset) => listTables(client, dataset),
         listViews: (dataset) => listViews(client, dataset),
         listRoutines: () => listRoutines(client),
-        listTableColumns: (table) => listTableColumns(client, table),
+        listTableColumns: (table, schema) => listTableColumns(client, table, schema),
         listTableTriggers: (table) => listTableTriggers(client, table),
         listTableIndexes: (db, table) => listTableIndexes(client, table),
         listSchemas: () => listSchemas(client),
@@ -65,8 +66,11 @@ export function listTableIndexes() {
   return Promise.resolve([]);
 }
 
-export function listSchemas() {
-  return Promise.resolve([]);
+export async function listSchemas(client) {
+  const data = await client.getDatasets().then(function(x) {
+	  return x[0].map(function(y){return y.id;});
+  });
+  return data;
 }
 
 export function getTableReferences() {
@@ -201,13 +205,15 @@ export function disconnect() {
 }
 
 export async function listDatabases(client) {
-  const data = await client.getDatasets().then(function(x) {
-	  return x[0].map(function(y){return y.id;});
-  });
-  return data;
+  // const data = await client.getDatasets().then(function(x) {
+//     return x[0].map(function(y){return y.id;});
+//   });
+//   return data;
+return [client.projectId]; 
 }
 
 export async function listTables(client, dataset) {
+  console.log("calling listTables with dataset", dataset);
   let thisDataset = dataset.schema;
   let thisProject = '';
   if (thisDataset.indexOf(':') >= 0) {
@@ -219,20 +225,35 @@ export async function listTables(client, dataset) {
     thisDataset = projectElements[projectElements.length - 1];
     client.projectId = newProject;
   }
-  const data  = await client.dataset(thisDataset).getTables().then(function(x) {
-    return x[0].map(function(y){return {name: y.id}});
-  });
-  // console.log(data);
-  return data;
+  let all_data = [];
+  console.log("thisDataset", thisDataset);
+  let schemas = thisDataset.split(',');
+  for (let i = 0; i< schemas.length; i++) {
+    console.log("thisDataset s[i]", schemas[i]);
+    const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
+      console.log(s, x);
+      return x[0].map(function(y){return {name: y.id}});
+    });
+    console.log(data);
+    all_data.concat(data.map(function(x) {name: [schemas[i],x.name].join('.')}));
+  }
+  console.log(all_data);
+  return all_data;
 }
 
-export async function listTableColumns(client, table) {
+export async function listTableColumns(client, table, schema) {
     let thisDataset = '';
     let thisTable = '';
     if (table.indexOf('.') > 0) {
       thisTable = table.split('.')[1];
       thisDataset = table.split('.')[0];
+    } else {
+      thisTable = table;
     }
+    if (typeof(schema) != 'undefined') {
+      thisDataset = schema;
+    }
+    console.log("listing columns for", thisTable, thisDataset);
 	const data = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function (x) {
 		return x[0].schema.fields.map(function(x) {
 			return {columnName: x.name,

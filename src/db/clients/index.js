@@ -76,7 +76,6 @@ export const CLIENTS = [
       'server:port',
       'server:user',
       'server:password',
-      'server:schema',
       'server:domain',
       'server:ssh',
       'listRoutines',
