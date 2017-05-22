@@ -234,7 +234,10 @@ export async function listTables(client, dataset) {
       return x[0].map(function(y){return {name: y.id}});
     });
     console.log(data);
-    all_data.concat(data.map(function(x) {name: [schemas[i],x.name].join('.')}));
+    for (let j = 0; j < data.length; j++) {
+      data[j].name = schemas[i]+'.'+data[j].name;
+    }
+    all_data = all_data.concat(data);
   }
   console.log(all_data);
   return all_data;
@@ -274,12 +277,23 @@ export async function listViews(client, dataset) {
 	  }
     thisDataset = projectElements[projectElements.length - 1];
     client.projectId = newProject;
-  }
+  } 
+  let all_data = [];
+  console.log("thisDataset", thisDataset);
+  let schemas = thisDataset.split(',');
+  for (let i = 0; i< schemas.length; i++) {
   const data  = await client.dataset(thisDataset).getTables().then(function(x) {
     let views = x[0].filter(function(x) {return x.metadata.type == "VIEW";});
     return views.map(function(y){return {name: y.id}});
   });
-  return data;
+    console.log(data);
+    for (let j = 0; j < data.length; j++) {
+      data[j].name = schemas[i]+'.'+data[j].name;
+    }
+    all_data = all_data.concat(data);
+  }
+  console.log(all_data);
+  return all_data;
 }
 
 function parseQueryResults(data, command) {
