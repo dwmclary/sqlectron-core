@@ -349,13 +349,13 @@ function executeQuery(client, queryText) {
 }
 
 function identifyCommands(queryText) {
+  let commands = [];
   try {
-    return identify(queryText);
-  } catch (err) {
-    let commands = []
     if (queryText.match(/with/i)) {
+      console.log("matches");
       let possibleQueries = queryText.split(';');
       for (let i = 0; i < possibleQueries.length; i++) {
+        console.log("evalutating:", possibleQueries[i]);
         if (possibleQueries[i].match(/^with/i)) {
           commands.push({start: 0,
           end: 0,
@@ -363,12 +363,18 @@ function identifyCommands(queryText) {
           type: 'SELECT', 
           executionType: 'LISTING'})
         } else {
-          commands.push(identify(possibleQueries[i])[0]);
+          let thisQuery = identify(possibleQueries[i]);
+          if (thisQuery.length > 0) {
+            commands.push(thisQuery[0]);
+          }
         }
+        console.log(commands);
     }
+  } else {
+    return identify(queryText);
   }
+  } catch (err) {}
     return commands;
-  }
 }
 
 /*eslint-disable */
