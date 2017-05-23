@@ -14,10 +14,10 @@ let limitSelect = null;
 
 
 export function createConnection(server, database) {
-	// console.log("in client.js");
-	// console.log(database);
+	// 
+	// 
 	if (server.config.name == 'bigquery' || server.config.client === 'bigquery') {
-    console.log("client is bigquery, calling with", database);
+    
 	    return bq(database);
 	}
   /**

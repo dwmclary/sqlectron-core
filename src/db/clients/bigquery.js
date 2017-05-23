@@ -13,7 +13,7 @@ var bqClient = {};
 export default function (bqconfig) {
 
     logger().debug('creating database client %j', bqconfig);
-    console.log('database in lib is:', bqconfig.database);
+    
     let projectId = bqconfig.database.split('||')[0];
     let keyFilename = bqconfig.database.split('||')[1];
     const client  = BigQuery({projectId: projectId, keyFilename: keyFilename});
@@ -101,9 +101,9 @@ export async function getTableSelectScript(client, table, schema) {
       thisDataset = table.split('.')[0];
     }
 	let queryTable = table;
-	if (typeof(schema) != 'undefined') {
-		queryTable = schema+"."+queryTable;
-	}
+	// if (typeof(schema) != 'undefined') {
+// 		queryTable = schema+"."+queryTable;
+// 	}
 	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
 		return data[0];
 	});
@@ -123,9 +123,9 @@ export async function getTableInsertScript(client, table, schema) {
       thisDataset = table.split('.')[0];
     }
 	let queryTable = table;
-	if (typeof(schema) != 'undefined') {
-		queryTable = schema+"."+queryTable;
-	}
+	// if (typeof(schema) != 'undefined') {
+// 		queryTable = schema+"."+queryTable;
+// 	}
 	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
 		return data[0];
 	});
@@ -135,14 +135,14 @@ export async function getTableInsertScript(client, table, schema) {
 	  `(${columns.join(', ')})`,
       `VALUES (${columns.map(function(x){return "?";}).join(',')});`,
     ].join(' ');
-	// console.log("query", query);
+	// 
 	return query;
 }
 
 export async function getTableUpdateScript(client, table, schema) {
-	// console.log("in BQ tableselectscript");
-	// console.log(table);
-	// console.log(schema);
+	// 
+	// 
+	// 
     let thisDataset = '';
     let thisTable = '';
     if (table.indexOf('.') > 0) {
@@ -150,13 +150,13 @@ export async function getTableUpdateScript(client, table, schema) {
       thisDataset = table.split('.')[0];
     }
 	let queryTable = table;
-	if (typeof(schema) != 'undefined') {
-		queryTable = schema+"."+queryTable;
-	}
+	// if (typeof(schema) != 'undefined') {
+	// 	queryTable = schema+"."+queryTable;
+	// }
 	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
 		return data[0];
 	});
-	// console.log("columns", columns);
+	// 
 	columns = columns.schema.fields.map(function (x) {return x.name+"=?";});
 	const query = [
       `UPDATE`,
@@ -164,22 +164,22 @@ export async function getTableUpdateScript(client, table, schema) {
 	  `SET ${columns.join(', ')}`,
       `WHERE <condition>;`,
     ].join(' ');
-	// console.log("query", query);
+	// 
 	return query;
 }
 
 export async function getTableDeleteScript(client, table, schema) {
 	let queryTable = table;
-	if (typeof(schema) != 'undefined') {
-		queryTable = schema+"."+queryTable;
-	}
+	// if (typeof(schema) != 'undefined') {
+// 		queryTable = schema+"."+queryTable;
+// 	}
 	const query = [
       `DELETE`,
       'FROM',
     '\`'+`${queryTable}`+'\`',
 		`WHERE <condition>`,
     ].join(' ');
-	// console.log("delete query", query);
+	// 
 	return query;
 }
 
@@ -213,7 +213,7 @@ return [client.projectId];
 }
 
 export async function listTables(client, dataset) {
-  console.log("calling listTables with dataset", dataset);
+  
   let thisDataset = dataset.schema;
   let thisProject = '';
   if (thisDataset.indexOf(':') >= 0) {
@@ -226,20 +226,20 @@ export async function listTables(client, dataset) {
     client.projectId = newProject;
   }
   let all_data = [];
-  console.log("thisDataset", thisDataset);
+  
   let schemas = thisDataset.split(',');
   for (let i = 0; i< schemas.length; i++) {
-    console.log("thisDataset s[i]", schemas[i]);
+    
     const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
       return x[0].map(function(y){return {name: y.id}});
     });
-    console.log(data);
+    
     for (let j = 0; j < data.length; j++) {
       data[j].name = schemas[i]+'.'+data[j].name;
     }
     all_data = all_data.concat(data);
   }
-  console.log(all_data);
+  
   return all_data;
 }
 
@@ -255,7 +255,7 @@ export async function listTableColumns(client, table, schema) {
     // if (typeof(schema) != 'undefined') {
     //   thisDataset = schema;
     // }
-    console.log("listing columns for",table,  thisTable, thisDataset);
+    
 	const data = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function (x) {
 		return x[0].schema.fields.map(function(x) {
 			return {columnName: x.name,
@@ -279,20 +279,20 @@ export async function listViews(client, dataset) {
     client.projectId = newProject;
   } 
   let all_data = [];
-  console.log("thisDataset", thisDataset);
+  
   let schemas = thisDataset.split(',');
   for (let i = 0; i< schemas.length; i++) {
   const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
     let views = x[0].filter(function(x) {return x.metadata.type == "VIEW";});
     return views.map(function(y){return {name: y.id}});
   });
-    console.log(data);
+    
     for (let j = 0; j < data.length; j++) {
       data[j].name = schemas[i]+'.'+data[j].name;
     }
     all_data = all_data.concat(data);
   }
-  console.log(all_data);
+  
   return all_data;
 }
 
@@ -316,7 +316,7 @@ function executeSingleQuery(client, queryText, command) {
     return new Promise((resolve, reject) => {
       client.query(queryObject, function(err, rows) {
         if (err) {
-			// console.log(err);
+			// 
 			return reject(err)
 		};
         resolve(parseQueryResults(rows, command));
@@ -325,14 +325,14 @@ function executeSingleQuery(client, queryText, command) {
 }
 
 function executeQuery(client, queryText) {
-  // console.log("querytext");
-  // console.log(queryText);
-  // console.log(client.projectId);
+  // 
+  // 
+  // 
   // set the project to the default project ID
   // client.projectId = client.defaultProject;
-  // console.log(client.projectId);
+  // 
   const commands = identifyCommands(queryText);
-  // console.log(commands);
+  // 
   let results = [];
   for (var i = 0; i < commands.length; i++) {
 	  let thisResult = executeSingleQuery(client, commands[i].text, commands[i].type);
