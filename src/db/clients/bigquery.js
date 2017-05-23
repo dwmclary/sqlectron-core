@@ -48,6 +48,10 @@ export default function (bqconfig) {
       };
 }
 
+function strip(str) {
+    return str.replace(/^\s+|\s+$/g, '');
+}
+
 export function wrapIdentifier(value) {
   if (value === '*') return value;
   const matched = value.match(/(.*?)(\[[0-9]\])/); // eslint-disable-line no-useless-escape
@@ -227,7 +231,7 @@ export async function listTables(client, dataset) {
   }
   let all_data = [];
   
-  let schemas = thisDataset.split(',');
+  let schemas = thisDataset.split(',').map(function(x) {return strip(x)});
   for (let i = 0; i< schemas.length; i++) {
     
     const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
@@ -280,7 +284,7 @@ export async function listViews(client, dataset) {
   } 
   let all_data = [];
   
-  let schemas = thisDataset.split(',');
+  let schemas = thisDataset.split(',').map(function(x) {return strip(x)});
   for (let i = 0; i< schemas.length; i++) {
   const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
     let views = x[0].filter(function(x) {return x.metadata.type == "VIEW";});
@@ -331,7 +335,9 @@ function executeQuery(client, queryText) {
   // set the project to the default project ID
   // client.projectId = client.defaultProject;
   // 
+  console.log("querytext", queryText);
   const commands = identifyCommands(queryText);
+  console.log("incoming commands", commands);
   // 
   let results = [];
   for (var i = 0; i < commands.length; i++) {
@@ -346,7 +352,22 @@ function identifyCommands(queryText) {
   try {
     return identify(queryText);
   } catch (err) {
-    return [];
+    let commands = []
+    if (queryText.match(/with/i)) {
+      let possibleQueries = queryText.split(';');
+      for (let i = 0; i < possibleQueries.length; i++) {
+        if (possibleQueries[i].match(/^with/i)) {
+          commands.push({start: 0,
+          end: 0,
+          text:possibleQueries[i],
+          type: 'SELECT', 
+          executionType: 'LISTING'})
+        } else {
+          commands.push(identify(possibleQueries[i])[0]);
+        }
+    }
+  }
+    return commands;
   }
 }
 

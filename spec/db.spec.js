@@ -179,11 +179,7 @@ describe('db', () => {
                 expect(views).to.eql([
                   { schema: dbSchema, name: 'email_view' },
                 ]);
-              } else if (dbClient === 'bigquery') {
-				  expect(views).to.eql([
-					  { name: 'sqlectron_tests.email_view'}
-				  ]);
-			  } else {
+              } else {
                 expect(views).to.eql([
                   { name: 'email_view' },
                 ]);
@@ -324,9 +320,7 @@ describe('db', () => {
               expect(schemas).to.include.members([dbSchema, 'dummy_schema']);
             } else if (dbClient === 'sqlserver') {
               expect(schemas).to.include('dummy_schema');
-            } else if (dbClient === 'bigquery') {
-			  expect(schemas).to.include('sqlectron_tests');
-			} else {
+            } else {
               expect(schemas).to.have.length(0);
             }
           });
@@ -460,7 +454,7 @@ describe('db', () => {
             if (dbClient === 'sqlserver') {
               expect(selectQuery).to.eql('SELECT [id], [username], [email], [password], [role_id], [createdat] FROM [public].[users];');
             } else if (dbClient === 'bigquery') {
-			  expect(selectQuery).to.eql('SELECT id, username, email, password, role_id, createdat FROM `sqlectron_tests.users`;');
+			  expect(selectQuery).to.eql('SELECT id, username, email, password, role_id, createdat FROM `google.com:pd-pm-experiments.sqlectron_tests.users`;');
 			} else if (dbClient === 'postgresql') {
               expect(selectQuery).to.eql('SELECT "id", "username", "email", "password", "role_id", "createdat" FROM "public"."users";');
             }
@@ -517,7 +511,7 @@ describe('db', () => {
                 'VALUES (?, ?, ?, ?, ?, ?);',
               ].join(' '));
             } else if (dbClient === 'bigquery') {
-              expect(insertQuery).to.eql(['INSERT `sqlectron_tests.users`',
+              expect(insertQuery).to.eql(['INSERT `google.com:pd-pm-experiments.sqlectron_tests.users`',
 	            '(id, username, email, password, role_id, createdat) VALUES (?,?,?,?,?,?);'].join(' '));
             } else if (dbClient === 'postgresql' || dbClient === 'sqlite') {
               expect(insertQuery).to.eql([
@@ -584,7 +578,7 @@ describe('db', () => {
                 'WHERE <condition>;',
               ].join(' '))
             } else if (dbClient === 'bigquery') {
-              expect(updateQuery).to.eql(['UPDATE `sqlectron_tests.users`',
+              expect(updateQuery).to.eql(['UPDATE `google.com:pd-pm-experiments.sqlectron_tests.users`',
               'SET id=?, username=?, email=?, password=?, role_id=?, createdat=?',
               'WHERE <condition>;'].join(' '))
             } else if (dbClient === 'postgresql' || dbClient === 'sqlite') {
@@ -630,7 +624,7 @@ describe('db', () => {
             if (dbClient === 'sqlserver') {
               expect(deleteQuery).to.contain('DELETE FROM [public].[roles] WHERE <condition>;');
             } else if (dbClient === 'bigquery') {
-              expect(deleteQuery).to.contain('DELETE FROM `sqlectron_tests.roles` WHERE <condition>');
+              expect(deleteQuery).to.contain('DELETE FROM `google.com:pd-pm-experiments.sqlectron_tests.roles` WHERE <condition>');
             } else if (dbClient === 'postgresql') {
               expect(deleteQuery).to.contain('DELETE FROM "public"."roles" WHERE <condition>;');
             }
@@ -773,13 +767,13 @@ describe('db', () => {
             `);
           } else {	
               await dbConn.executeQuery(`
-                INSERT INTO \`sqlectron_tests.roles\`
+                INSERT INTO \`google.com:pd-pm-experiments.sqlectron_tests.roles\`
 				   (${includePk ? 'id,' : ''} name)
                 VALUES (${includePk ? '1,' : ''} 'developer')
               `);
 
               await dbConn.executeQuery(`
-                INSERT INTO \`sqlectron_tests.users\`
+                INSERT INTO \`google.com:pd-pm-experiments.sqlectron_tests.users\`
 				   (${includePk ? 'id,' : ''} username, email, password, role_id, createdat)
                 VALUES (${includePk ? '1,' : ''} 'maxcnunes', 'maxcnunes@gmail.com', '123456', 1,'2016-10-25')
               `);
@@ -829,7 +823,7 @@ describe('db', () => {
             it('should execute a single query with empty result', async () => {
               let query = 'select * from users where id = 0';
               if (dbClient == 'bigquery') {
-                query = `select * from \`sqlectron_tests.users\`
+                query = `select * from \`google.com:pd-pm-experiments.sqlectron_tests.users\`
 				   where id = 0`;
               }
               const results = await dbConn.executeQuery(query);
@@ -961,7 +955,7 @@ describe('db', () => {
 				`;
 				if (dbClient === 'bigquery') {
 					query = `
-	                insert into \`sqlectron_tests.users\`
+	                insert into \`google.com:pd-pm-experiments.sqlectron_tests.users\`
 					 (${includePk ? 'id,' : ''} username, email, password)
 	                values (${includePk ? '1,' : ''} 'user', 'user@hotmail.com', '123456')
 					`;
@@ -1002,11 +996,11 @@ describe('db', () => {
 				  `;
 				  if (dbClient === 'bigquery') {
 				  	query = `
-                  insert into \`sqlectron_tests.users\` 
+                  insert into \`google.com:pd-pm-experiments.sqlectron_tests.users\` 
 					  (id, username, email, password)
                   values (1, 'user', 'user@hotmail.com', '123456');
 
-                  insert into  \`sqlectron_tests.roles\` 
+                  insert into  \`google.com:pd-pm-experiments.sqlectron_tests.roles\` 
 				  (id, name) values (1, 'manager');
 				  `
 				  }
@@ -1067,7 +1061,7 @@ describe('db', () => {
 				let query = 'delete from users where id = 1';
 				if (dbClient === 'bigquery') {
 					query = `delete from 
-					\`sqlectron_tests.users\` 
+					\`google.com:pd-pm-experiments.sqlectron_tests.users\` 
 					where id = 1`;
 				}
               const results = await dbConn.executeQuery(query);
@@ -1103,9 +1097,9 @@ describe('db', () => {
                 `
 				  if (dbClient === 'bigquery') {
 				  	query = `
-                  delete from \`sqlectron_tests.users\` 
+                  delete from \`google.com:pd-pm-experiments.sqlectron_tests.users\` 
 					   where username = 'maxcnunes';
-                  delete from \`sqlectron_tests.roles\` 
+                  delete from \`google.com:pd-pm-experiments.sqlectron_tests.roles\` 
 					   where name = 'developer';
                 `
 				  }
@@ -1162,7 +1156,7 @@ describe('db', () => {
             it('should execute a single query', async () => {
 				let query = `update users set username = 'max' where id = 1`;
 				if (dbClient === 'bigquery') {
-					query = `update \`sqlectron_tests.users\`
+					query = `update \`google.com:pd-pm-experiments.sqlectron_tests.users\`
 					set username = 'max' where id = 1`;
 				}
               const results = await dbConn.executeQuery(query);
@@ -1198,8 +1192,8 @@ describe('db', () => {
 				  `;
 				  if (dbClient === 'bigquery') {
 				  	query = `
-					  update \`sqlectron_tests.users\` set username = 'max' where username = 'maxcnunes';
-	                  update \`sqlectron_tests.roles\` set name = 'dev' where name = 'developer';
+					  update \`google.com:pd-pm-experiments.sqlectron_tests.users\` set username = 'max' where username = 'maxcnunes';
+	                  update \`google.com:pd-pm-experiments.sqlectron_tests.roles\` set name = 'dev' where name = 'developer';
 					  `
 				  }
                 const results = await dbConn.executeQuery(query);
