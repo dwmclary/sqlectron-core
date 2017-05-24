@@ -316,7 +316,40 @@ function executeSingleQuery(client, queryText, command) {
       query: queryText,
       useLegacySql: false,
     }
+    let hasDestination = false;
+    //check for destination table
+    let qt = queryText.toLowerCase();
+    if (qt.indexOf("#desttable") > 0 || qt.indexOf("#temptable") > 0) {
+      //get the table name
+      let destOrTemp = 'temp';
+      let pos1 = undefined;
+      if (qt.indexOf("#desttable") > 0) {
+        destOrTemp = 'dest';
+        pos1 = qt.indexOf("#desttable");
+      } else {
+        pos1 = qt.indexOf("#temptable");
+      }
+      let pos2 = undefined;
+      if (qt.indexOf(";") > 0) {
+        pos2 = qt.indexOf(";");
+      }
+      let tableString = qt.substring(pos1,pos2);
+      let destTable = undefined;
+      if (destOrTemp === 'dest') {
+        destTable = tableString.split("#desttable")[1].split(".").map(function(x) {return strip(x);});
+      } else {
+        destTable = tableString.split("#temptable")[1].split(".").map(function(x) {return strip(x);});
+      }
+      queryObject = {
+        destination: client.dataset(destTable[0]).table(destTable[1]),
+        query: queryText,
+        useLegacySql: false,
+      }
+      hasDestination = true;
+      console.log("has a destination table", destTable);
+    }
     let data = [];
+    if (!hasDestination) {
     return new Promise((resolve, reject) => {
       client.query(queryObject, function(err, rows) {
         if (err) {
@@ -326,6 +359,33 @@ function executeSingleQuery(client, queryText, command) {
         resolve(parseQueryResults(rows, command));
       });
     });
+  } else {
+    "starting query"
+    return new Promise((resolve, reject)  => {
+      client.startQuery(queryObject, function(err, job) {
+        if (err) {
+          return reject(err);
+        }
+        job.getQueryResults(function(err, rows) {
+          console.log("gettingResults");
+          resolve(parseQueryResults(rows, command));
+        });
+      });
+    });
+  }
+}
+
+function cleanTempTables(client, temptables) {
+  for (let i = 0; i < temptables.length; i++) {
+    let ds = temptables[i].split('.')[0];
+    let t = temptables[i].split('.')[1];
+    client.dataset(ds).table(t).delete(function(err, apiResponse) {
+      if (err) {
+        console.log(err);
+        return err;
+      }
+    })
+  }
 }
 
 function executeQuery(client, queryText) {
@@ -338,11 +398,27 @@ function executeQuery(client, queryText) {
   console.log("querytext", queryText);
   const commands = identifyCommands(queryText);
   console.log("incoming commands", commands);
+  let temptables = [];
+  for (let i = 0; i < commands.length; i++) {
+    let qt = commands[i].text.toLowerCase();
+    if (qt.indexOf("#temptable") > 0) {
+      let pos1 = qt.indexOf("#temptable");
+      let pos2 = undefined;
+      if (qt.indexOf(";") > 0) {
+        pos2 = qt.indexOf(";");
+      }
+      let tableString = qt.substring(pos1,pos2);
+      temptables.push(tableString);
+    }
+  }
   // 
   let results = [];
   for (var i = 0; i < commands.length; i++) {
 	  let thisResult = executeSingleQuery(client, commands[i].text, commands[i].type);
 	  results.push(thisResult);
+  }
+  if (temptables.length > 0) {
+    cleanTempTables(client, temptables);
   }
   return Promise.all(results);
   
@@ -353,7 +429,7 @@ function identifyCommands(queryText) {
   try {
     if (queryText.match(/with/i)) {
       console.log("matches");
-      let possibleQueries = queryText.split(';');
+      let possibleQueries = queryText.split(';').map(function(x) {return strip(x);});
       for (let i = 0; i < possibleQueries.length; i++) {
         console.log("evalutating:", possibleQueries[i]);
         if (possibleQueries[i].match(/^with/i)) {
