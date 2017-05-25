@@ -389,6 +389,7 @@ function cleanTempTables(client, temptables) {
 }
 
 function sleep (time) {
+	//sleep function
   return new Promise((resolve) => setTimeout(resolve, time));
 }
 
