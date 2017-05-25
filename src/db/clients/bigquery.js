@@ -319,15 +319,15 @@ function executeSingleQuery(client, queryText, command) {
     let hasDestination = false;
     //check for destination table
     let qt = queryText.toLowerCase();
-    if (qt.indexOf("#desttable") > 0 || qt.indexOf("#temptable") > 0) {
+    if (qt.indexOf("#dt") > 0 || qt.indexOf("#tt") > 0) {
       //get the table name
       let destOrTemp = 'temp';
       let pos1 = undefined;
-      if (qt.indexOf("#desttable") > 0) {
+      if (qt.indexOf("#dt") > 0) {
         destOrTemp = 'dest';
-        pos1 = qt.indexOf("#desttable");
+        pos1 = qt.indexOf("#dt");
       } else {
-        pos1 = qt.indexOf("#temptable");
+        pos1 = qt.indexOf("#tt");
       }
       let pos2 = undefined;
       if (qt.indexOf(";") > 0) {
@@ -336,9 +336,9 @@ function executeSingleQuery(client, queryText, command) {
       let tableString = qt.substring(pos1,pos2);
       let destTable = undefined;
       if (destOrTemp === 'dest') {
-        destTable = tableString.split("#desttable")[1].split(".").map(function(x) {return strip(x);});
+        destTable = tableString.split("#dt")[1].split(".").map(function(x) {return strip(x);});
       } else {
-        destTable = tableString.split("#temptable")[1].split(".").map(function(x) {return strip(x);});
+        destTable = tableString.split("#tt")[1].split(".").map(function(x) {return strip(x);});
       }
       queryObject = {
         destination: client.dataset(destTable[0]).table(destTable[1]),
@@ -353,18 +353,21 @@ function executeSingleQuery(client, queryText, command) {
     return new Promise((resolve, reject) => {
       client.query(queryObject, function(err, rows) {
         if (err) {
-			// 
-			return reject(err)
+          if (err.code == 404) {
+        		console.log("sleeping on 404");
+        		sleep(2000).then(executeSingleQuery(client, queryText, command));
+          } else {
+            return reject(err) }
 		};
         resolve(parseQueryResults(rows, command));
       });
     });
   } else {
-    "starting query"
+    console.log("starting query", queryObject);
     return new Promise((resolve, reject)  => {
       client.startQuery(queryObject, function(err, job) {
         if (err) {
-          return reject(err);
+          return reject(err); 
         }
         job.getQueryResults(function(err, rows) {
           console.log("gettingResults");
@@ -375,14 +378,18 @@ function executeSingleQuery(client, queryText, command) {
   }
 }
 
-function cleanTempTables(client, temptables) {
+async function cleanTempTables(client, temptables) {
+  console.log("cleaning temptables");
   for (let i = 0; i < temptables.length; i++) {
-    let ds = temptables[i].split('.')[0];
-    let t = temptables[i].split('.')[1];
+    console.log("cleaning ", temptables[i]);
+    let tablename = temptables[i].split('#tt');
+    let ds = tablename.split('.')[0];
+    let t = tablename.split('.')[1];
+    await _pollForTable(client, temptables[i]);
+    console.log("deleting ", ds, t);
     client.dataset(ds).table(t).delete(function(err, apiResponse) {
       if (err) {
         console.log(err);
-        return err;
       }
     })
   }
@@ -395,25 +402,36 @@ function sleep (time) {
 
 export async function _pollForTable(client, table) {
 	console.log("starting poll");
-	let destTable = table.split("#temptable")[1].split(".").map(function(x) {return strip(x);});
+	let destTable = table.split("#tt")[1].split(".").map(function(x) {return strip(x);});
 	let ds = destTable[0];
 	let t = destTable[1];
-	let ttExists = await client.dataset(ds).getTables().then(function(x) {
+	let ttExists = undefined;
+  try {
+    ttExists = await client.dataset(ds).getTables().then(function(x) {
       return x[0].map(function(y){return y.id}).filter(function(y) {return y == t});
     });
+  }
+  catch (err) {
+    console.log("API error in poll")
+  }
 	console.log("exists before loop", ttExists);
 	while (ttExists.length == 0) {
 		console.log("sleeping");
 		sleep(2000).then(() => {});
-			ttExists = await client.dataset(ds).getTables().then(function(x) {
-return x[0].map(function(y){return y.id}).filter(function(y) {return y == t});
-});
+    try {
+      ttExists = await client.dataset(ds).getTables().then(function(x) {
+        return x[0].map(function(y){return y.id}).filter(function(y) {return y == t});
+      });
+    }
+    catch (err) {
+      console.log("API error in poll")
+    }
 
 	console.log("exists bottom of loop", ttExists);
 	}
 }
 
-function executeQuery(client, queryText) {
+async function executeQuery(client, queryText) {
   // 
   // 
   // 
@@ -429,8 +447,8 @@ function executeQuery(client, queryText) {
   for (let i = 0; i < commands.length; i++) {
     let qt = commands[i].text.toLowerCase();
 	let hasTT = false
-    if (qt.indexOf("#temptable") > 0) {
-      let pos1 = qt.indexOf("#temptable");
+    if (qt.indexOf("#tt") > 0) {
+      let pos1 = qt.indexOf("#tt");
       let pos2 = undefined;
       if (qt.indexOf(";") > 0) {
         pos2 = qt.indexOf(";");
@@ -443,9 +461,10 @@ function executeQuery(client, queryText) {
 	  let thisResult = executeSingleQuery(client, commands[i].text, commands[i].type);
 	  results.push(thisResult);
 	  if (hasTT) {
-		  _pollForTable(client, temptables[i]);
+		  await _pollForTable(client, temptables[i]);
 	  }
   }
+  console.log("done with queries");
   if (temptables.length > 0) {
     cleanTempTables(client, temptables);
   }
