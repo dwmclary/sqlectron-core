@@ -388,6 +388,30 @@ function cleanTempTables(client, temptables) {
   }
 }
 
+function sleep (time) {
+  return new Promise((resolve) => setTimeout(resolve, time));
+}
+
+export async function _pollForTable(client, table) {
+	console.log("starting poll");
+	let destTable = table.split("#temptable")[1].split(".").map(function(x) {return strip(x);});
+	let ds = destTable[0];
+	let t = destTable[1];
+	let ttExists = await client.dataset(ds).getTables().then(function(x) {
+      return x[0].map(function(y){return y.id}).filter(function(y) {return y == t});
+    });
+	console.log("exists before loop", ttExists);
+	while (ttExists.length == 0) {
+		console.log("sleeping");
+		sleep(2000).then(() => {});
+			ttExists = await client.dataset(ds).getTables().then(function(x) {
+return x[0].map(function(y){return y.id}).filter(function(y) {return y == t});
+});
+
+	console.log("exists bottom of loop", ttExists);
+	}
+}
+
 function executeQuery(client, queryText) {
   // 
   // 
@@ -399,8 +423,11 @@ function executeQuery(client, queryText) {
   const commands = identifyCommands(queryText);
   console.log("incoming commands", commands);
   let temptables = [];
+  let results = [];
+  
   for (let i = 0; i < commands.length; i++) {
     let qt = commands[i].text.toLowerCase();
+	let hasTT = false
     if (qt.indexOf("#temptable") > 0) {
       let pos1 = qt.indexOf("#temptable");
       let pos2 = undefined;
@@ -409,13 +436,14 @@ function executeQuery(client, queryText) {
       }
       let tableString = qt.substring(pos1,pos2);
       temptables.push(tableString);
+	  hasTT = true;
     }
-  }
-  // 
-  let results = [];
-  for (var i = 0; i < commands.length; i++) {
+
 	  let thisResult = executeSingleQuery(client, commands[i].text, commands[i].type);
 	  results.push(thisResult);
+	  if (hasTT) {
+		  _pollForTable(client, temptables[i]);
+	  }
   }
   if (temptables.length > 0) {
     cleanTempTables(client, temptables);
