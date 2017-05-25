@@ -24,7 +24,7 @@ export default function (bqconfig) {
         isBigQuery: () => function() {return true;}, 
         createServer: (serverConfig) => createServer(serverConfig),
         connect: () => connect(),
-        disconnect: () => disconnect(),
+        disconnect: () => disconnect(client),
         listTables: (dataset) => listTables(client, dataset),
         listViews: (dataset) => listViews(client, dataset),
         listRoutines: () => listRoutines(client),
@@ -200,11 +200,14 @@ function configDatabase(keyfile, project, database) {
 export function connect() {
 	return Promise.resolve();
 }
-export function disconnect() {
+export function disconnect(client) {
   // BigQuery does not have a connection pool. So we open and close connections
   // for every query request. This allows multiple request at same time by
   // using a different thread for each connection.
   // This may cause connection limit problem. So we may have to change this at some point.
+	if (client.temptables) {
+		cleanTempTables(client, client.temptables);
+	}
   return Promise.resolve();;
 }
 
@@ -217,7 +220,6 @@ return [client.projectId];
 }
 
 export async function listTables(client, dataset) {
-  
   let thisDataset = dataset.schema;
   let thisProject = '';
   if (thisDataset.indexOf(':') >= 0) {
@@ -344,34 +346,30 @@ function executeSingleQuery(client, queryText, command) {
         destination: client.dataset(destTable[0]).table(destTable[1]),
         query: queryText,
         useLegacySql: false,
-        useQueryCache: false,
       }
       hasDestination = true;
-      console.log("has a destination table", destTable);
+      //("has a destination table", destTable);
     }
     let data = [];
     if (!hasDestination) {
     return new Promise((resolve, reject) => {
       client.query(queryObject, function(err, rows) {
         if (err) {
-          if (err.code == 404) {
-        		console.log("sleeping on 404");
-        		sleep(2000).then(executeSingleQuery(client, queryText, command));
-          } else {
-            return reject(err) }
-		};
+            return reject(err)
+		}
         resolve(parseQueryResults(rows, command));
       });
     });
   } else {
-    console.log("starting query", queryObject);
+    //("starting query", queryObject);
     return new Promise((resolve, reject)  => {
       client.startQuery(queryObject, function(err, job) {
         if (err) {
+			//(err);
           return reject(err); 
         }
         job.getQueryResults(function(err, rows) {
-          console.log("gettingResults");
+          //("gettingResults");
           resolve(parseQueryResults(rows, command));
         });
       });
@@ -380,20 +378,20 @@ function executeSingleQuery(client, queryText, command) {
 }
 
 async function cleanTempTables(client, temptables) {
-  console.log("cleaning temptables");
-  sleep(600000).then(() => {
-  console.log("clean wait over");
+  //("cleaning temptables");
+  sleep(30000).then(() => {
+  //("clean wait over");
   for (let i = 0; i < temptables.length; i++) {
-    console.log("cleaning ", temptables[i]);
-    console.log(typeof(temptables[i]))
+    //("cleaning ", temptables[i]);
+    //(typeof(temptables[i]))
     let tablename = strip(temptables[i].split('#tt')[1]);
     let ds = tablename.split('.')[0];
     let t = tablename.split('.')[1];
     // await _pollForTable(client, temptables[i]);
-    console.log("deleting ", ds, t);
+    //("deleting ", ds, t);
     client.dataset(ds).table(t).delete(function(err, apiResponse) {
       if (err) {
-        console.log(err);
+        //(err);
       }
     })
   }});
@@ -405,7 +403,7 @@ function sleep (time) {
 }
 
 export async function _pollForTable(client, table) {
-	console.log("starting poll");
+	//("starting poll");
 	let destTable = table.split("#tt")[1].split(".").map(function(x) {return strip(x);});
 	let ds = destTable[0];
 	let t = destTable[1];
@@ -416,7 +414,7 @@ export async function _pollForTable(client, table) {
     });
   }
   catch (err) {
-    console.log("API error in poll")
+    //("API error in poll")
   }
 	while (ttExists.length == 0) {
 		sleep(2000).then(() => {});
@@ -426,7 +424,7 @@ export async function _pollForTable(client, table) {
       });
     }
     catch (err) {
-      console.log("API error in poll")
+      //("API error in poll")
     }
 
 	}
@@ -439,9 +437,9 @@ async function executeQuery(client, queryText) {
   // set the project to the default project ID
   // client.projectId = client.defaultProject;
   // 
-  console.log("querytext", queryText);
+  //("querytext", queryText);
   const commands = identifyCommands(queryText);
-  console.log("incoming commands", commands);
+  //("incoming commands", commands);
   let temptables = [];
   let results = [];
   
@@ -465,9 +463,12 @@ async function executeQuery(client, queryText) {
 		  await _pollForTable(client, temptables[i]);
 	  }
   }
-  console.log("done with queries");
+  // //("done with queries");
+  // if (temptables.length > 0) {
+  //   cleanTempTables(client, temptables);
+  // }
   if (temptables.length > 0) {
-    cleanTempTables(client, temptables);
+ 	 client.temptables = temptables;
   }
   return Promise.all(results);
   
@@ -477,10 +478,10 @@ function identifyCommands(queryText) {
   let commands = [];
   try {
     if (queryText.match(/with/i)) {
-      console.log("matches");
+      //("matches");
       let possibleQueries = queryText.split(';').map(function(x) {return strip(x);});
       for (let i = 0; i < possibleQueries.length; i++) {
-        console.log("evalutating:", possibleQueries[i]);
+        //("evalutating:", possibleQueries[i]);
         if (possibleQueries[i].match(/^with/i)) {
           commands.push({start: 0,
           end: 0,
@@ -493,7 +494,7 @@ function identifyCommands(queryText) {
             commands.push(thisQuery[0]);
           }
         }
-        console.log(commands);
+        //(commands);
     }
   } else {
     return identify(queryText);
