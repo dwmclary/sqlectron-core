@@ -344,6 +344,7 @@ function executeSingleQuery(client, queryText, command) {
         destination: client.dataset(destTable[0]).table(destTable[1]),
         query: queryText,
         useLegacySql: false,
+        useQueryCache: false,
       }
       hasDestination = true;
       console.log("has a destination table", destTable);
@@ -380,19 +381,22 @@ function executeSingleQuery(client, queryText, command) {
 
 async function cleanTempTables(client, temptables) {
   console.log("cleaning temptables");
+  sleep(600000).then(() => {
+  console.log("clean wait over");
   for (let i = 0; i < temptables.length; i++) {
     console.log("cleaning ", temptables[i]);
-    let tablename = temptables[i].split('#tt');
+    console.log(typeof(temptables[i]))
+    let tablename = strip(temptables[i].split('#tt')[1]);
     let ds = tablename.split('.')[0];
     let t = tablename.split('.')[1];
-    await _pollForTable(client, temptables[i]);
+    // await _pollForTable(client, temptables[i]);
     console.log("deleting ", ds, t);
     client.dataset(ds).table(t).delete(function(err, apiResponse) {
       if (err) {
         console.log(err);
       }
     })
-  }
+  }});
 }
 
 function sleep (time) {
@@ -414,9 +418,7 @@ export async function _pollForTable(client, table) {
   catch (err) {
     console.log("API error in poll")
   }
-	console.log("exists before loop", ttExists);
 	while (ttExists.length == 0) {
-		console.log("sleeping");
 		sleep(2000).then(() => {});
     try {
       ttExists = await client.dataset(ds).getTables().then(function(x) {
@@ -427,7 +429,6 @@ export async function _pollForTable(client, table) {
       console.log("API error in poll")
     }
 
-	console.log("exists bottom of loop", ttExists);
 	}
 }
 
