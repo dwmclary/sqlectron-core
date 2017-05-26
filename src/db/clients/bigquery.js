@@ -106,7 +106,7 @@ export async function getTableSelectScript(client, table, schema) {
     }
 	let queryTable = table;
 	// if (typeof(schema) != 'undefined') {
-// 		queryTable = schema+"."+queryTable;
+// 		queryTable = schema+'.'+queryTable;
 // 	}
 	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
 		return data[0];
@@ -128,7 +128,7 @@ export async function getTableInsertScript(client, table, schema) {
     }
 	let queryTable = table;
 	// if (typeof(schema) != 'undefined') {
-// 		queryTable = schema+"."+queryTable;
+// 		queryTable = schema+'.'+queryTable;
 // 	}
 	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
 		return data[0];
@@ -137,7 +137,7 @@ export async function getTableInsertScript(client, table, schema) {
 	const query = [
       `INSERT \`${queryTable}\``,
 	  `(${columns.join(', ')})`,
-      `VALUES (${columns.map(function(x){return "?";}).join(',')});`,
+      `VALUES (${columns.map(function(x){return '?';}).join(',')});`,
     ].join(' ');
 	// 
 	return query;
@@ -155,13 +155,13 @@ export async function getTableUpdateScript(client, table, schema) {
     }
 	let queryTable = table;
 	// if (typeof(schema) != 'undefined') {
-	// 	queryTable = schema+"."+queryTable;
+	// 	queryTable = schema+'.'+queryTable;
 	// }
 	let columns = await client.dataset(thisDataset).table(thisTable).getMetadata().then(function(data) {
 		return data[0];
 	});
 	// 
-	columns = columns.schema.fields.map(function (x) {return x.name+"=?";});
+	columns = columns.schema.fields.map(function (x) {return x.name+'=?';});
 	const query = [
       `UPDATE`,
     '\`'+`${queryTable}`+'\`',
@@ -175,7 +175,7 @@ export async function getTableUpdateScript(client, table, schema) {
 export async function getTableDeleteScript(client, table, schema) {
 	let queryTable = table;
 	// if (typeof(schema) != 'undefined') {
-// 		queryTable = schema+"."+queryTable;
+// 		queryTable = schema+'.'+queryTable;
 // 	}
 	const query = [
       `DELETE`,
@@ -289,7 +289,7 @@ export async function listViews(client, dataset) {
   let schemas = thisDataset.split(',').map(function(x) {return strip(x)});
   for (let i = 0; i< schemas.length; i++) {
   const data  = await client.dataset(schemas[i]).getTables().then(function(x) {
-    let views = x[0].filter(function(x) {return x.metadata.type == "VIEW";});
+    let views = x[0].filter(function(x) {return x.metadata.type == 'VIEW';});
     return views.map(function(y){return {name: y.id}});
   });
     
@@ -303,11 +303,14 @@ export async function listViews(client, dataset) {
 }
 
 function parseQueryResults(data, command) {
+	if (typeof(data) == 'undefined') {
+		data = [];
+	}
     let response = {fields: Object.keys(data[0] || {}).map((name) => ({ name })),
     command: command,
     rows: data,
     rowCount: data.length};
-	if (command === "UPDATE" || command === "DELETE" || command === "INSERT") {
+	if (command === 'UPDATE' || command === 'DELETE' || command === 'INSERT') {
 		response.affectedRows = undefined;
 	}
       return response;
@@ -321,37 +324,57 @@ function executeSingleQuery(client, queryText, command) {
     let hasDestination = false;
     //check for destination table
     let qt = queryText.toLowerCase();
-    if (qt.indexOf("#dt") > 0 || qt.indexOf("#tt") > 0) {
+	//('has dt or tt', (qt.indexOf('#dt') > 0 || qt.indexOf('#tt') > 0));
+    if (qt.indexOf('#dt') > 0 || qt.indexOf('#tt') > 0) {
       //get the table name
       let destOrTemp = 'temp';
       let pos1 = undefined;
-      if (qt.indexOf("#dt") > 0) {
+	  let writeDisposition = 'WRITE_EMPTY';
+	  let splitString = '#dt';
+      if (qt.indexOf('#dt') > 0) {
         destOrTemp = 'dest';
-        pos1 = qt.indexOf("#dt");
+        pos1 = qt.indexOf('#dt');
+		if (qt.indexOf('#dtwt') > 0) {
+			pos1 = qt.indexOf('#dtwt');
+			writeDisposition = 'WRITE_TRUNCATE';
+			splitString = '#dtwt';
+		} else if (qt.indexOf('#dtwa') > 0) {
+			pos1 = qt.indexOf('#dtwa');
+			writeDisposition = 'WRITE_APPEND';
+			splitString = '#dtwa';
+		}
       } else {
-        pos1 = qt.indexOf("#tt");
+        pos1 = qt.indexOf('#tt');
+		splitString = '#tt';
+		if (qt.indexOf('#ttwt') > 0) {
+			pos1 = qt.indexOf('#ttwt');
+			writeDisposition = 'WRITE_TRUNCATE';
+			splitString = '#ttwt';
+		} else if (qt.indexOf('#ttwa') > 0) {
+			pos1 = qt.indexOf('#ttwa');
+			writeDisposition = 'WRITE_APPEND';
+			splitString = '#ttwa';
+		}
+		
       }
       let pos2 = undefined;
-      if (qt.indexOf(";") > 0) {
-        pos2 = qt.indexOf(";");
+      if (qt.indexOf(';') > 0) {
+        pos2 = qt.indexOf(';');
       }
       let tableString = qt.substring(pos1,pos2);
-      let destTable = undefined;
-      if (destOrTemp === 'dest') {
-        destTable = tableString.split("#dt")[1].split(".").map(function(x) {return strip(x);});
-      } else {
-        destTable = tableString.split("#tt")[1].split(".").map(function(x) {return strip(x);});
-      }
+      let destTable = tableString.split(splitString)[1].split('.').map(function(x) {return strip(x);});
       queryObject = {
         destination: client.dataset(destTable[0]).table(destTable[1]),
         query: queryText,
         useLegacySql: false,
+		writeDisposition: writeDisposition,
       }
       hasDestination = true;
-      //("has a destination table", destTable);
+      //('has a destination table', destTable);
     }
     let data = [];
     if (!hasDestination) {
+		// //('starting query normally');
     return new Promise((resolve, reject) => {
       client.query(queryObject, function(err, rows) {
         if (err) {
@@ -361,7 +384,7 @@ function executeSingleQuery(client, queryText, command) {
       });
     });
   } else {
-    //("starting query", queryObject);
+    // //('starting query', queryObject);
     return new Promise((resolve, reject)  => {
       client.startQuery(queryObject, function(err, job) {
         if (err) {
@@ -369,7 +392,7 @@ function executeSingleQuery(client, queryText, command) {
           return reject(err); 
         }
         job.getQueryResults(function(err, rows) {
-          //("gettingResults");
+          //('gettingResults');
           resolve(parseQueryResults(rows, command));
         });
       });
@@ -378,17 +401,23 @@ function executeSingleQuery(client, queryText, command) {
 }
 
 async function cleanTempTables(client, temptables) {
-  //("cleaning temptables");
+  //('cleaning temptables');
   sleep(30000).then(() => {
-  //("clean wait over");
+  //('clean wait over');
   for (let i = 0; i < temptables.length; i++) {
-    //("cleaning ", temptables[i]);
+    //('cleaning ', temptables[i]);
     //(typeof(temptables[i]))
-    let tablename = strip(temptables[i].split('#tt')[1]);
+	let splitString = '#tt';
+	if (temptables[i].indexOf('#ttwt') > 0) {
+		splitString = '#ttwt';
+	} else if (temptables[i].indexOf('#ttwa') > 0) {
+		splitString = '#ttwa';
+	}
+    let tablename = strip(temptables[i].split(splitString)[1]);
     let ds = tablename.split('.')[0];
     let t = tablename.split('.')[1];
     // await _pollForTable(client, temptables[i]);
-    //("deleting ", ds, t);
+    //('deleting ', ds, t);
     client.dataset(ds).table(t).delete(function(err, apiResponse) {
       if (err) {
         //(err);
@@ -403,10 +432,29 @@ function sleep (time) {
 }
 
 export async function _pollForTable(client, table) {
-	//("starting poll");
-	let destTable = table.split("#tt")[1].split(".").map(function(x) {return strip(x);});
+	//('starting poll', table);
+	//('table defined', (typeof(table) != 'undefined'));
+	let splitString = '#tt';
+	if (table.indexOf('#ttwt') >= 0) {
+		splitString = '#ttwt';
+	} 
+	if (table.indexOf('#ttwa') >= 0) {
+		splitString = '#ttwa';
+	} 
+	if (table.indexOf('#dt') >= 0) {
+		splitString = '#dt';
+	} 
+	if (table.indexOf('#dtwa') >= 0) {
+		splitString = '#dtwa';
+	} 
+	if (table.indexOf('#dtwt') >= 0) {
+		splitString = '#dtwt';
+	}
+	//("splitstring", splitString);
+	let destTable = table.split(splitString)[1].split('.').map(function(x) {return strip(x);});
 	let ds = destTable[0];
 	let t = destTable[1];
+	//('filter on', t);
 	let ttExists = undefined;
   try {
     ttExists = await client.dataset(ds).getTables().then(function(x) {
@@ -414,7 +462,8 @@ export async function _pollForTable(client, table) {
     });
   }
   catch (err) {
-    //("API error in poll")
+	  //('API error in poll');
+	  //(err);
   }
 	while (ttExists.length == 0) {
 		sleep(2000).then(() => {});
@@ -424,7 +473,7 @@ export async function _pollForTable(client, table) {
       });
     }
     catch (err) {
-      //("API error in poll")
+      //('API error in poll')
     }
 
 	}
@@ -437,33 +486,55 @@ async function executeQuery(client, queryText) {
   // set the project to the default project ID
   // client.projectId = client.defaultProject;
   // 
-  //("querytext", queryText);
+  //('querytext', queryText);
   const commands = identifyCommands(queryText);
-  //("incoming commands", commands);
+  //('incoming commands', commands);
   let temptables = [];
   let results = [];
   
   for (let i = 0; i < commands.length; i++) {
     let qt = commands[i].text.toLowerCase();
-	let hasTT = false
-    if (qt.indexOf("#tt") > 0) {
-      let pos1 = qt.indexOf("#tt");
+	let hasTT = false;
+	let hasDT = false;
+	let tableString = '';
+    if (qt.indexOf('#tt') >= 0) {
+		//("in tt block");
+      let pos1 = qt.indexOf('#tt');
+  	  let splitString = '#tt';
       let pos2 = undefined;
-      if (qt.indexOf(";") > 0) {
-        pos2 = qt.indexOf(";");
+      if (qt.indexOf(';') > 0) {
+        pos2 = qt.indexOf(';');
       }
-      let tableString = qt.substring(pos1,pos2);
+	  //("table from", pos1, pos2);
+      tableString = qt.substring(pos1,pos2);
+	  //(tableString);
       temptables.push(tableString);
 	  hasTT = true;
+    } else if (qt.indexOf('#dt') >= 0) {
+		//sometimes we need to wait on a permanent table too
+    	hasDT = true;
+        let pos1 = qt.indexOf('#dt');
+    	  let splitString = '#dt';
+        let pos2 = undefined;
+        if (qt.indexOf(';') > 0) {
+          pos2 = qt.indexOf(';');
+        }
+        tableString = qt.substring(pos1,pos2);
+  	  //("dt to poll", tableString);
+		
     }
-
+	// //("hasTT", hasTT)
+	// //("temp tables", temptables);
 	  let thisResult = executeSingleQuery(client, commands[i].text, commands[i].type);
 	  results.push(thisResult);
 	  if (hasTT) {
 		  await _pollForTable(client, temptables[i]);
+	  } else if (hasDT) {
+		  //("polling for dt", tableString);
+	  	  await _pollForTable(client, tableString);
 	  }
   }
-  // //("done with queries");
+  // //('done with queries');
   // if (temptables.length > 0) {
   //   cleanTempTables(client, temptables);
   // }
@@ -478,10 +549,10 @@ function identifyCommands(queryText) {
   let commands = [];
   try {
     if (queryText.match(/with/i)) {
-      //("matches");
+      //('matches');
       let possibleQueries = queryText.split(';').map(function(x) {return strip(x);});
       for (let i = 0; i < possibleQueries.length; i++) {
-        //("evalutating:", possibleQueries[i]);
+        //('evalutating:', possibleQueries[i]);
         if (possibleQueries[i].match(/^with/i)) {
           commands.push({start: 0,
           end: 0,
