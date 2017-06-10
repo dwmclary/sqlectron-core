@@ -1,5 +1,5 @@
 /* eslint no-unused-vars: "off", require-yield: "off",
-no-param-reassign: "off", no-param-reassign: "off", no-underscore-dangle: "off" */
+no-param-reassign: "off", no-param-reassign: "off", no-underscore-dangle: "off"*/
 import { identify } from 'sql-query-identifier';
 import createLogger from '../../logger';
 
